@@ -46,6 +46,10 @@
       font-family: var(--font-sans);
     }
 
+    canvas {
+      touch-action: none;
+    }
+
     /* Canvas 背景层 */
     #bg-canvas {
       position: absolute;
@@ -55,6 +59,7 @@
       height: 100%;
       z-index: 1;
       pointer-events: none;
+      touch-action: none;
     }
 
     /* 赛博 CRT 扫描线与暗角滤镜 */
@@ -941,19 +946,33 @@
     /* 响应式调整与全端零溢出 */
     @media (max-width: 640px) {
       .hud-header {
-        padding: 6px 10px;
+        padding: 5px 8px;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .hud-title-group {
+        min-width: auto;
+      }
+      .chapter-tag {
+        max-width: 140px;
+      }
+      .hud-right-group {
+        gap: 6px;
       }
       .metrics-group {
-        gap: 8px;
+        gap: 6px;
       }
       .metric-item {
-        width: 60px;
+        width: 52px;
+      }
+      .qol-control-group {
+        gap: 4px;
       }
       .qol-control-group .btn-cyber span.btn-label {
         display: none;
       }
       .qol-control-group .btn-cyber {
-        padding: 5px 7px;
+        padding: 4px 6px;
       }
       .hologram-card {
         max-height: 180px;

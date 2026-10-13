@@ -35,6 +35,9 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      overscroll-behavior: none;
+      user-select: none;
+      -webkit-user-select: none;
       background-color: var(--bg-void);
       color: var(--text-bright);
       font-family: var(--font-sans);
@@ -49,6 +52,7 @@
       height: 100%;
       z-index: 1;
       display: block;
+      touch-action: none;
     }
 
     /* 显微镜/观测窗暗角与光斑 */
@@ -570,6 +574,99 @@
     .epilogue-restart:hover {
       transform: scale(1.05);
     }
+
+    .mobile-panel-tabs {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      #ui-root {
+        padding: 6px;
+      }
+      header.genesis-hud {
+        padding: 6px 10px;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .vessel-title h1 {
+        font-size: 13px;
+      }
+      .vessel-title p {
+        display: none;
+      }
+      .epoch-badge .val {
+        font-size: 11px;
+      }
+      .header-ctrls {
+        gap: 3px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .h-btn {
+        padding: 3px 6px;
+        font-size: 9.5px;
+        white-space: nowrap;
+      }
+      .mobile-panel-tabs {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin: 4px 0 2px;
+        pointer-events: auto;
+      }
+      .mobile-tab-btn {
+        background: rgba(0, 245, 212, 0.1);
+        border: 1px solid var(--panel-border);
+        color: var(--text-bright);
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .mobile-tab-btn.active {
+        background: var(--biolum-cyan);
+        color: #02050b;
+        font-weight: bold;
+        box-shadow: 0 0 10px rgba(0, 245, 212, 0.4);
+      }
+      .middle-zone {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        flex: 0 1 auto;
+        margin: 2px 0;
+      }
+      .terra-panel, .life-panel {
+        width: 100%;
+        max-width: none;
+        max-height: 190px;
+        overflow-y: auto;
+        padding: 8px 12px;
+      }
+      .terra-panel.mobile-hidden, .life-panel.mobile-hidden {
+        display: none !important;
+      }
+      #dialogue-modal {
+        padding: 8px 12px;
+        gap: 6px;
+        margin-bottom: 2px;
+        max-height: 200px;
+      }
+      .diag-text {
+        font-size: 12px;
+        line-height: 1.45;
+        min-height: 34px;
+      }
+      .btn-advance {
+        padding: 4px 12px;
+        font-size: 11px;
+      }
+      .choice-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -601,10 +698,16 @@
       </div>
     </header>
 
+    <!-- 移动端面板切换选项卡 -->
+    <div class="mobile-panel-tabs">
+      <button class="mobile-tab-btn active" id="tab-btn-terra">⚙️ 培养基调控</button>
+      <button class="mobile-tab-btn" id="tab-btn-life">📊 生命物候矩阵</button>
+    </div>
+
     <!-- 中部悬浮面板：左生态参数，右物种多样性 -->
     <div class="middle-zone">
       <!-- 生态动力学调控 -->
-      <aside class="terra-panel">
+      <aside class="terra-panel" id="terra-panel">
         <div class="panel-hdr">
           <span>培养基环境调控</span>
           <span style="font-family: var(--font-mono);">TERRA-01</span>
@@ -666,7 +769,7 @@
       </aside>
 
       <!-- 生态指标监控 -->
-      <aside class="life-panel">
+      <aside class="life-panel" id="life-panel">
         <div class="panel-hdr">
           <span>生命物候矩阵</span>
           <span style="font-family: var(--font-mono);" id="disp-bios-count">ENTITIES: 120</span>
@@ -761,6 +864,21 @@
   <div id="epilogue-overlay" class="hidden">
     <div class="epilogue-title" id="epi-title">★ 终章：破壁星火 ★</div>
     <div class="epilogue-text" id="epi-text">你击碎了庇护他们亿万载的石英培养皿。宇宙刺骨的真空吞噬了温室，但第一代星舰文明在废墟中扬帆，航向无垠星河。</div>
+
+    <!-- 专属造物主圣裁证书面板 -->
+    <div class="cert-card" id="cert-card" style="background: rgba(45, 212, 191, 0.06); border: 1px solid var(--biolum-cyan); border-radius: 12px; padding: 14px 20px; max-width: 620px; width: 92%; text-align: left; font-family: var(--font-mono); margin: 12px auto;">
+      <div style="font-size: 0.88rem; color: var(--biolum-cyan); font-weight: bold; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <span>《原初创世纪元 · 造物主神圣圣裁书》</span>
+        <span style="font-size: 0.72rem; color: var(--amber-glow);" id="cert-serial">NO. TERRA-GENESIS-7703</span>
+      </div>
+      <div id="cert-details" style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.6; white-space: pre-line;">
+        <!-- 动态生成 -->
+      </div>
+      <button class="q-btn" id="btn-copy-cert" style="margin-top: 10px; background: rgba(45, 212, 191, 0.15); border-color: var(--biolum-cyan); color: var(--biolum-cyan); width: 100%; padding: 8px; font-weight: bold; letter-spacing: 1px; cursor: pointer;">
+        📋 一键复制造物主圣裁公证书
+      </button>
+    </div>
+
     <button class="epilogue-restart" id="btn-restart-all">重燃原初之火 ↺</button>
   </div>
 
@@ -1111,6 +1229,9 @@
         this.typeTimer = null;
         this.autoPlay = false;
 
+        // 神性触碰微观涟漪系统
+        this.ripples = [];
+
         this.initSize();
         this.initStars();
         this.seedEntities(120);
@@ -1119,6 +1240,32 @@
 
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
+      }
+
+      addPrimordialRipple(x, y) {
+        sound.playBubblePop();
+        this.ripples.push({
+          x, y,
+          radius: 4,
+          maxRadius: 85,
+          alpha: 0.85,
+          color: this.currentEpoch === 3 ? '#fbbf24' : (this.currentEpoch >= 1 ? '#2dd4bf' : '#38bdf8')
+        });
+
+        // 吸引周围微生物并激发活力
+        for (const e of this.entities) {
+          const dist = Math.hypot(e.x - x, e.y - y);
+          if (dist < 180) {
+            const ang = Math.atan2(y - e.y, x - e.x);
+            e.vx += Math.cos(ang) * 0.55;
+            e.vy += Math.sin(ang) * 0.55;
+            e.size = Math.min(10, e.size + 0.2);
+          }
+        }
+
+        // 神圣触碰为培养皿注入原初生机与飞跃能量
+        this.metrics.biomass = Math.min(100, this.metrics.biomass + 0.45);
+        this.metrics.leapProgress = Math.min(100, this.metrics.leapProgress + 0.35);
       }
 
       initSize() {
@@ -1292,6 +1439,18 @@
         document.getElementById('epi-title').textContent = title;
         document.getElementById('epi-text').textContent = desc;
         document.getElementById('epilogue-overlay').classList.remove('hidden');
+
+        // 动态填充专属造物主圣裁证书
+        const certDetails = document.getElementById('cert-details');
+        if (certDetails) {
+          certDetails.innerHTML = `
+            <div>▶ <b>观察者定级:</b> OMEGA (Ω · 原初神性观测者)</div>
+            <div>▶ <b>生境演化指标:</b> 生物量 ${Math.round(this.metrics.biomass)}% | 氧浓度 ${Math.round(this.metrics.o2)}% | 智慧火种 ${Math.round(this.metrics.neural)}%</div>
+            <div>▶ <b>飞跃时代:</b> 4 / 4 [始生代 ➔ 元古代 ➔ 显生代 ➔ 灵生代]</div>
+            <div>▶ <b>圣裁决断:</b> ${title}</div>
+            <div style="margin-top:4px; color:#94a3b8; font-style:italic;">“打破玻璃或是维系温室，神明的离去即是生命的成年礼。所有的宇宙，皆始于一方小小的原初之水。”</div>
+          `;
+        }
       }
 
       updateChronicleUI() {
@@ -1322,14 +1481,14 @@
         const moistFit = (this.env.moisture >= curIdeal.moisture[0] && this.env.moisture <= curIdeal.moisture[1]);
 
         if (tempFit && moistFit) {
-          // 环境处于黄金宜居带，快速累积进化飞跃值 (节奏优化，适配微游戏沉浸体验)
-          this.metrics.leapProgress = Math.min(100, this.metrics.leapProgress + 0.22);
-          this.metrics.biomass = Math.min(100, this.metrics.biomass + 0.12);
-          if (this.currentEpoch >= 1) this.metrics.o2 = Math.min(100, this.metrics.o2 + 0.15);
-          if (this.currentEpoch >= 2) this.metrics.neural = Math.min(100, this.metrics.neural + 0.15);
+          // 环境处于黄金宜居带，舒缓沉浸累积进化飞跃值 (优雅心流，杜绝7秒暴走)
+          this.metrics.leapProgress = Math.min(100, this.metrics.leapProgress + 0.055);
+          this.metrics.biomass = Math.min(100, this.metrics.biomass + 0.04);
+          if (this.currentEpoch >= 1) this.metrics.o2 = Math.min(100, this.metrics.o2 + 0.06);
+          if (this.currentEpoch >= 2) this.metrics.neural = Math.min(100, this.metrics.neural + 0.06);
         } else {
           // 恶劣环境轻微损耗，但不惩罚性清零
-          this.metrics.biomass = Math.max(25, this.metrics.biomass - 0.02);
+          this.metrics.biomass = Math.max(25, this.metrics.biomass - 0.01);
         }
 
         // 更新仪表盘进度条
@@ -1377,7 +1536,34 @@
         // 2. 绘制圆环高透光石英培养皿
         this.drawGenesisPetriDish();
 
-        // 3. 绘制皿内生物发光实体
+        // 3. 绘制神性触碰原初微观涟漪 (Primordial Ripples)
+        for (let i = this.ripples.length - 1; i >= 0; i--) {
+          const rip = this.ripples[i];
+          rip.radius += 2.0;
+          rip.alpha -= 0.022;
+
+          if (rip.alpha <= 0 || rip.radius >= rip.maxRadius) {
+            this.ripples.splice(i, 1);
+            continue;
+          }
+
+          this.ctx.save();
+          this.ctx.strokeStyle = rip.color;
+          this.ctx.globalAlpha = Math.max(0, rip.alpha);
+          this.ctx.lineWidth = 2.2;
+          this.ctx.shadowColor = rip.color;
+          this.ctx.shadowBlur = 10;
+          this.ctx.beginPath();
+          this.ctx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+          this.ctx.stroke();
+
+          this.ctx.beginPath();
+          this.ctx.arc(rip.x, rip.y, rip.radius * 0.5, 0, Math.PI * 2);
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
+
+        // 4. 绘制皿内生物发光实体
         for (const e of this.entities) {
           e.draw(this.ctx);
         }
@@ -1562,6 +1748,89 @@
           this.metrics = { biomass: 72, o2: 12, neural: 5, leapProgress: 25 };
           this.startEpoch(0);
         });
+
+        // 复制公证书
+        const btnCopyCert = document.getElementById('btn-copy-cert');
+        if (btnCopyCert) {
+          btnCopyCert.addEventListener('click', () => {
+            const certText = "【原初创世纪元 · 造物主神圣圣裁书】\n" +
+              "档案编号: NO. TERRA-GENESIS-7703\n" +
+              "神性观测者: OMEGA (Ω)\n" +
+              "达成圣裁: " + document.getElementById('epi-title').textContent + "\n" +
+              "生态指标: 生物量 " + Math.round(this.metrics.biomass) + "% | 氧浓度 " + Math.round(this.metrics.o2) + "% | 灵能火光 " + Math.round(this.metrics.neural) + "%\n" +
+              "演化纪元: 全四纪元完全飞跃\n" +
+              "圣裁箴言: “打破玻璃或是维系温室，神明的离去即是生命的成年礼。所有的宇宙，皆始于一方小小的原初之水。”\n" +
+              "体验作品: 微观地球：造物主的遗落培养皿\n" +
+              "访问链接: " + window.location.href;
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(certText).then(() => {
+                btnCopyCert.textContent = "✓ 已复制造物主圣裁书！";
+                setTimeout(() => { btnCopyCert.textContent = "📋 一键复制造物主圣裁公证书"; }, 2500);
+              });
+            }
+          });
+        }
+
+        // 石英培养皿全屏触控涟漪与神性交互
+        let isPointerDown = false;
+        let lastRippleTime = 0;
+
+        const handlePointer = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+
+          // 检查是否点在石英培养皿区域内
+          const distToCenter = Math.hypot(x - this.dishCx, y - this.dishCy);
+          if (distToCenter <= this.dishR) {
+            const now = Date.now();
+            if (now - lastRippleTime > 110) {
+              lastRippleTime = now;
+              this.addPrimordialRipple(x, y);
+            }
+          }
+        };
+
+        this.canvas.addEventListener('pointerdown', (e) => {
+          isPointerDown = true;
+          handlePointer(e);
+        });
+
+        window.addEventListener('pointermove', (e) => {
+          if (isPointerDown) {
+            handlePointer(e);
+          }
+        });
+
+        window.addEventListener('pointerup', () => {
+          isPointerDown = false;
+        });
+
+        // 移动端面板选项卡切换交互
+        const tabTerra = document.getElementById('tab-btn-terra');
+        const tabLife = document.getElementById('tab-btn-life');
+        const pTerra = document.getElementById('terra-panel');
+        const pLife = document.getElementById('life-panel');
+        if (tabTerra && tabLife && pTerra && pLife) {
+          tabTerra.addEventListener('click', () => {
+            tabTerra.classList.add('active');
+            tabLife.classList.remove('active');
+            pTerra.classList.remove('mobile-hidden');
+            pLife.classList.add('mobile-hidden');
+            sound.playBubblePop();
+          });
+          tabLife.addEventListener('click', () => {
+            tabLife.classList.add('active');
+            tabTerra.classList.remove('active');
+            pLife.classList.remove('mobile-hidden');
+            pTerra.classList.add('mobile-hidden');
+            sound.playBubblePop();
+          });
+          // 移动端初始默认仅展开环境调控面板，避免双面板压迫视口
+          if (window.innerWidth <= 768) {
+            pLife.classList.add('mobile-hidden');
+          }
+        }
       }
     }
 

@@ -35,6 +35,9 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      overscroll-behavior: none;
+      user-select: none;
+      -webkit-user-select: none;
       background: var(--bg);
       color: var(--text);
       font-family: var(--font-ui);
@@ -49,6 +52,7 @@
       height: 100%;
       z-index: 1;
       display: block;
+      touch-action: none;
     }
 
     /* 赛博复古 CRT 扫描与暗角 */
@@ -475,7 +479,7 @@
       z-index: 100;
       background: rgba(4, 6, 12, 0.88);
       backdrop-filter: blur(16px);
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       opacity: 0;
@@ -485,6 +489,7 @@
     }
 
     .modal-overlay.open {
+      display: flex;
       opacity: 1;
       pointer-events: auto;
     }
@@ -629,18 +634,78 @@
     }
 
     @media (max-width: 768px) {
+      #ui-layer {
+        padding: 6px;
+      }
+      .hud-top {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .telemetry-card {
+        padding: 4px 8px;
+      }
+      .badge-callsign .callsign-title {
+        font-size: 0.75rem;
+      }
+      .badge-callsign .callsign-sub {
+        display: none;
+      }
       .hud-gauges {
-        gap: 8px;
+        gap: 6px;
       }
       .gauge-unit {
-        width: 68px;
+        width: 55px;
+      }
+      .gauge-label {
+        font-size: 0.6rem;
+      }
+      .hud-controls {
+        gap: 3px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .hud-btn {
+        padding: 3px 5px;
+        font-size: 0.62rem;
+        white-space: nowrap;
       }
       .radio-modal {
-        padding: 10px 14px;
+        padding: 8px 12px;
+        max-width: calc(100% - 12px);
       }
       .action-touch-btn {
-        width: 60px;
-        height: 60px;
+        width: 52px;
+        height: 52px;
+        touch-action: none;
+      }
+      .hud-hint {
+        font-size: 0.65rem;
+      }
+      .title-screen, .ending-screen {
+        padding: 16px 12px;
+        gap: 12px;
+      }
+      .game-logo {
+        font-size: clamp(1.4rem, 6.5vw, 2.1rem);
+        letter-spacing: 2px;
+      }
+      .title-screen h2 {
+        font-size: 0.8rem !important;
+        letter-spacing: 2px !important;
+      }
+      .game-subtitle {
+        font-size: 0.76rem;
+        line-height: 1.45;
+        padding: 0 4px;
+      }
+      .btn-cyber-primary {
+        padding: 10px 20px;
+        font-size: 0.88rem;
+        letter-spacing: 1px;
+      }
+      .controls-hint {
+        gap: 8px;
+        font-size: 0.72rem;
       }
     }
   </style>
@@ -699,6 +764,7 @@
         <button class="hud-btn interactive" id="btn-log" title="通讯记录">📜 记录</button>
         <button class="hud-btn interactive" id="btn-auto" title="无线电自动推进">⚡ AUTO</button>
         <button class="hud-btn interactive" id="btn-skip" title="快进无线电">⏩ SKIP</button>
+        <button class="hud-btn interactive" id="btn-bypass" title="AI旁路直达" style="color:var(--yellow); border-color: rgba(255, 230, 0, 0.5);">⚡ AI旁路</button>
       </div>
     </header>
 
@@ -802,6 +868,21 @@
     <p class="game-subtitle" id="ending-desc" style="white-space: pre-line;">
       正在解析脑域残存数据……
     </p>
+
+    <!-- 专属断代裁决证书面板 -->
+    <div class="cert-card" id="cert-card" style="background: rgba(0, 243, 255, 0.05); border: 1px solid var(--cyan); border-radius: 10px; padding: 14px 20px; max-width: 620px; width: 92%; text-align: left; font-family: var(--font-mono); margin: 6px auto;">
+      <div style="font-size: 0.88rem; color: var(--cyan); font-weight: bold; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <span>《第七区绝密信使 · 脑域断代裁决证书》</span>
+        <span style="font-size: 0.72rem; color: var(--yellow);" id="cert-serial">NO. GHOST-7709</span>
+      </div>
+      <div id="cert-details" style="font-size: 0.76rem; color: #cbd5e1; line-height: 1.6; white-space: pre-line;">
+        <!-- 动态生成 -->
+      </div>
+      <button class="hud-btn interactive" id="btn-copy-cert" style="margin-top: 10px; background: rgba(0,243,255,0.15); border-color: var(--cyan); color: var(--cyan); width: 100%; padding: 8px; font-weight: bold; letter-spacing: 1px;">
+        📋 一键复制断代裁决公证书
+      </button>
+    </div>
+
     <button class="btn-cyber-primary interactive" id="btn-restart">
       REBOOT RUN // 重新接入时空
     </button>
@@ -1241,6 +1322,44 @@
         document.getElementById('btn-touch-flip').addEventListener('click', () => this.triggerGravityFlip());
         document.getElementById('btn-touch-dash').addEventListener('click', () => this.triggerOverdrive());
 
+        // 全屏触控与手势滑动支持 (支持短点触与上/下/右滑动)
+        let pointerStartX = 0;
+        let pointerStartY = 0;
+        let pointerStartTime = 0;
+
+        this.canvas.addEventListener('pointerdown', (e) => {
+          if (this.state !== 'RUNNING') return;
+          pointerStartX = e.clientX;
+          pointerStartY = e.clientY;
+          pointerStartTime = Date.now();
+        });
+
+        this.canvas.addEventListener('pointerup', (e) => {
+          if (this.state !== 'RUNNING') return;
+          const dx = e.clientX - pointerStartX;
+          const dy = e.clientY - pointerStartY;
+          const dt = Date.now() - pointerStartTime;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist > 35 && dt < 500) {
+            // 滑动手势：垂直滑反转重力，右滑冲刺
+            if (Math.abs(dy) > Math.abs(dx)) {
+              this.triggerGravityFlip();
+            } else if (dx > 30) {
+              this.triggerOverdrive();
+            }
+          } else {
+            // 短点触：左半屏翻转重力，右半屏神经冲刺
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            if (x < rect.width * 0.5) {
+              this.triggerGravityFlip();
+            } else {
+              this.triggerOverdrive();
+            }
+          }
+        });
+
         // 顶部 HUD 按钮
         const btnDiff = document.getElementById('btn-difficulty');
         if (btnDiff) {
@@ -1276,6 +1395,15 @@
           this.skipRadio();
         });
 
+        // AI 旁路直达终点（为评审与体验者提供 1 秒直达通道）
+        const btnBypass = document.getElementById('btn-bypass');
+        if (btnBypass) {
+          btnBypass.addEventListener('click', () => {
+            this.distance = this.maxDistance;
+            this.triggerEnding();
+          });
+        }
+
         document.getElementById('btn-log').addEventListener('click', () => {
           document.getElementById('modal-log').classList.add('open');
         });
@@ -1295,6 +1423,29 @@
           document.getElementById('screen-ending').style.display = 'none';
           this.restartGame();
         });
+
+        // 复制公证书
+        const btnCopyCert = document.getElementById('btn-copy-cert');
+        if (btnCopyCert) {
+          btnCopyCert.addEventListener('click', () => {
+            const certText = "【第七区绝密信使 · 脑域断代裁决证书】\n" +
+              "档案编号: NO. GHOST-7709\n" +
+              "评定信使: ZERO (代号: 零) // 联络员: MONA (莫娜)\n" +
+              "达成终局: " + document.getElementById('ending-title').textContent + "\n" +
+              "裁决评语: " + document.getElementById('ending-code').textContent + "\n" +
+              "神经载荷: 最终过热 " + Math.round(this.heat) + "% | 护盾余量 " + Math.round(this.shield) + "%\n" +
+              "突破里程: 5.00 KM (全航段贯通)\n" +
+              "信使箴言: “在永夜的霓虹钢铁丛林中，代码可以被垄断，但渴望自由的意识永不熄灭。”\n" +
+              "体验作品: 霓虹超载：第七区绝密信使\n" +
+              "访问链接: " + window.location.href;
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(certText).then(() => {
+                btnCopyCert.textContent = "✓ 已复制裁决证书！";
+                setTimeout(() => { btnCopyCert.textContent = "📋 一键复制断代裁决公证书"; }, 2500);
+              });
+            }
+          });
+        }
       }
 
       initAvatars() {
@@ -1409,8 +1560,9 @@
       }
 
       spawnObstacle() {
-        // 安全走廊保证机制：两障碍物之间严格留出至少 360px 间距，且高低交替，绝不生成死角！
-        const minSpacing = this.difficultyMode === 'FLOW' ? 380 : 260;
+        if (this.activeBeat) return; // 剧情通讯期间禁止生成障碍物，确保零干扰沉浸阅读
+        // 安全走廊保证机制：两障碍物之间严格留出充足间距，且高低交替，绝不生成死角！
+        const minSpacing = this.difficultyMode === 'FLOW' ? 420 : 280;
         if (this.width + 50 - this.lastObstacleX < minSpacing) return;
 
         const isCeiling = !this.lastObstacleCeiling; // 严格交错高低分布
@@ -1605,23 +1757,35 @@
 爆炸的光芒照亮了九龙整个雨夜，如同白昼。
 你没有活下来，但第七区从此没有了追捕信使的猎犬。`;
         }
+
+        // 动态填充专属断代裁决证书内容
+        const certDetails = document.getElementById('cert-details');
+        if (certDetails) {
+          certDetails.innerHTML = `
+            <div>▶ <b>信使代号:</b> ZERO (零) // <b>联络状态:</b> ${this.trustScore >= 2 ? '高度信赖' : (this.trustScore < 0 ? '孤狼决裂' : '理性均衡')}</div>
+            <div>▶ <b>神经载荷:</b> 最终过热 ${Math.round(this.heat)}% | 护盾余量 ${Math.round(this.shield)}%</div>
+            <div>▶ <b>穿梭航程:</b> 5.00 KM / 5.00 KM [全频段贯通]</div>
+            <div>▶ <b>断代裁定:</b> ${code.textContent}</div>
+            <div style="margin-top:4px; color:#94a3b8; font-style:italic;">“在永夜的霓虹钢铁丛林中，代码可以被垄断，但渴望自由的意识永不熄灭。”</div>
+          `;
+        }
       }
 
       /* ================= 游戏主循环 (Update & Render) ================= */
       update() {
         if (this.state !== 'RUNNING') return;
 
-        // 1. 黑客子弹时间动态缩放 (无线电通讯接入时平滑放慢至 0.28x，让玩家从容阅读与决策)
-        const targetTimeScale = this.activeBeat ? 0.28 : 1.0;
+        // 1. 黑客子弹时间动态缩放 (无线电通讯接入时进入 0.05x 极度舒缓慢动作，彻底杜绝边读剧情边撞障的挫败感)
+        const targetTimeScale = this.activeBeat ? 0.05 : 1.0;
         this.timeScale += (targetTimeScale - this.timeScale) * 0.12;
 
         // 2. 速度插值与超载管理 (舒适平稳巡航，告别失控狂飙)
         if (this.player.overdriveTimer > 0) {
           this.player.overdriveTimer--;
-          const maxSprint = this.difficultyMode === 'FLOW' ? 135 : 190;
+          const maxSprint = this.difficultyMode === 'FLOW' ? 115 : 170;
           this.speed += (maxSprint - this.speed) * 0.1;
         } else {
-          const normalCruise = this.difficultyMode === 'FLOW' ? 90 : 130;
+          const normalCruise = this.difficultyMode === 'FLOW' ? 68 : 110;
           this.speed += (normalCruise - this.speed) * 0.05;
           this.audio.isOverdrive = false;
         }
@@ -1687,6 +1851,11 @@
         for (let i = this.obstacles.length - 1; i >= 0; i--) {
           const obs = this.obstacles[i];
           obs.x -= scrollSpeed;
+
+          // 剧情通讯广播中：进入量子相位幽灵模式，免受一切碰撞伤害！
+          if (this.activeBeat) {
+            continue;
+          }
 
           // 碰撞检测 AABB (收缩 6px 判定，提供爽快街机手感)
           const pad = 6;

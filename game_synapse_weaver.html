@@ -36,6 +36,9 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      overscroll-behavior: none;
+      user-select: none;
+      -webkit-user-select: none;
       background: var(--bg);
       color: var(--text);
       font-family: var(--font-sans);
@@ -51,6 +54,7 @@
       z-index: 1;
       display: block;
       cursor: grab;
+      touch-action: none;
     }
 
     #synapse-canvas:active {
@@ -357,7 +361,7 @@
       z-index: 100;
       background: rgba(3, 5, 12, 0.9);
       backdrop-filter: blur(18px);
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       opacity: 0;
@@ -367,6 +371,7 @@
     }
 
     .modal-overlay.open {
+      display: flex;
       opacity: 1;
       pointer-events: auto;
     }
@@ -505,6 +510,80 @@
       box-shadow: 0 0 35px var(--synapse-glow);
       transform: scale(1.04);
     }
+
+    @media (max-width: 768px) {
+      #hud-layer {
+        padding: 6px;
+      }
+      header.lab-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+      }
+      .header-card {
+        padding: 4px 8px;
+        gap: 6px;
+        width: 100%;
+        flex-wrap: wrap;
+      }
+      .project-tag {
+        font-size: 0.6rem;
+      }
+      .subject-title {
+        font-size: 0.76rem;
+      }
+      .resonance-meter {
+        width: 100%;
+        gap: 6px;
+      }
+      .meter-label {
+        font-size: 0.62rem;
+      }
+      .lab-controls {
+        gap: 3px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        width: 100%;
+      }
+      .btn-qol {
+        padding: 3px 5px;
+        font-size: 0.62rem;
+        white-space: nowrap;
+        text-align: center;
+      }
+      .narrative-display {
+        max-width: calc(100% - 12px);
+        padding: 8px 12px;
+      }
+      .narrative-quote {
+        font-size: 0.85rem;
+      }
+      .synapse-hint {
+        font-size: 0.68rem;
+      }
+      .title-screen, .ending-screen {
+        padding: 16px 12px;
+        gap: 12px;
+      }
+      .game-logo {
+        font-size: clamp(1.4rem, 6.5vw, 2.1rem);
+        letter-spacing: 2px;
+      }
+      .title-screen h2 {
+        font-size: 0.8rem !important;
+        letter-spacing: 2px !important;
+      }
+      .game-subtitle {
+        font-size: 0.76rem;
+        line-height: 1.45;
+        padding: 0 4px;
+      }
+      .btn-bio-primary {
+        padding: 10px 20px;
+        font-size: 0.88rem;
+        letter-spacing: 1px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -550,7 +629,7 @@
       <div class="lab-controls">
         <button class="btn-qol interactive" id="btn-audio">🔊 声景:开</button>
         <button class="btn-qol interactive" id="btn-log">📜 记忆志</button>
-        <button class="btn-qol interactive" id="btn-auto">⚡ 辅助织网</button>
+        <button class="btn-qol interactive" id="btn-auto" style="border-color:var(--resonance-gold); color:var(--resonance-gold);">💡 一键共鸣</button>
         <button class="btn-qol interactive" id="btn-skip">⏩ SKIP</button>
       </div>
     </header>
@@ -667,6 +746,21 @@
     <p style="max-width: 640px; line-height: 1.8; color: #e2e8f0; font-size: 0.98rem; white-space: pre-line;" id="ending-desc">
       正在合成全频段母带……
     </p>
+
+    <!-- 专属终局鉴定证书面板 -->
+    <div class="cert-card" id="cert-card" style="background: rgba(56, 189, 248, 0.06); border: 1px solid var(--synapse-cyan); border-radius: 12px; padding: 14px 20px; max-width: 620px; width: 92%; text-align: left; font-family: var(--font-mono); margin: 8px auto;">
+      <div style="font-size: 0.88rem; color: var(--synapse-cyan); font-weight: bold; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <span>《神经考古所 · 记忆重构终局鉴定书》</span>
+        <span style="font-size: 0.72rem; color: var(--resonance-gold);" id="cert-serial">NO. SYNAPSE-8821</span>
+      </div>
+      <div id="cert-details" style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.6; white-space: pre-line;">
+        <!-- 动态生成 -->
+      </div>
+      <button class="btn-qol interactive" id="btn-copy-cert" style="margin-top: 10px; background: rgba(251, 191, 36, 0.15); border-color: var(--resonance-gold); color: var(--resonance-gold); width: 100%; padding: 8px; font-weight: bold; letter-spacing: 1px;">
+        📋 一键复制终局鉴定公证书
+      </button>
+    </div>
+
     <button class="btn-bio-primary interactive" id="btn-restart-lab">
       RE-ARCHIVE // 重返记忆星云
     </button>
@@ -857,6 +951,7 @@
         this.nodes = [];
         this.links = []; // 连接线
         this.activeDragNode = null;
+        this.selectedNode = null; // 点触选中节点 (Tap-to-Connect)
         this.mousePos = { x: 0, y: 0 };
         this.isDragging = false;
 
@@ -904,63 +999,101 @@
       }
 
       spawnInitialNodes() {
-        // 在画布中间区域错落有致生成代表记忆碎片的突触节点
+        // 在画布中间区域自适应生成代表记忆碎片的突触节点 (适配移动竖屏 360px~430px 至 4K 超宽屏)
         const cx = this.width * 0.5;
         const cy = this.height * 0.5;
+        const spreadX = Math.min(220, (this.width - 80) * 0.44);
+        const spreadY = Math.min(130, (this.height - 180) * 0.28);
+        const rScale = Math.min(1.0, Math.max(0.75, this.width / 600));
 
         this.nodes = [
-          { id: 1, name: '初遇·雨夜', role: 'origin', x: cx - 220, y: cy - 90, radius: 24, color: '#38bdf8', pulse: 0 },
-          { id: 2, name: '旧琴房·泛音', role: 'target', x: cx - 80, y: cy + 110, radius: 22, color: '#38bdf8', pulse: 1 },
-          { id: 3, name: '背叛·毒药', role: 'conflict', x: cx + 110, y: cy - 130, radius: 26, color: '#c084fc', pulse: 2 },
-          { id: 4, name: '维也纳·绝唱', role: 'climax', x: cx + 240, y: cy + 70, radius: 25, color: '#c084fc', pulse: 3 },
-          { id: 5, name: '林弦·核心共鸣', role: 'core', x: cx, y: cy - 20, radius: 30, color: '#fbbf24', pulse: 4 }
+          { id: 1, name: '初遇·雨夜', role: 'origin', x: cx - spreadX, y: cy - spreadY * 0.7, radius: Math.round(24 * rScale), color: '#38bdf8', pulse: 0 },
+          { id: 2, name: '旧琴房·泛音', role: 'target', x: cx - spreadX * 0.36, y: cy + spreadY * 0.85, radius: Math.round(22 * rScale), color: '#38bdf8', pulse: 1 },
+          { id: 3, name: '背叛·毒药', role: 'conflict', x: cx + spreadX * 0.5, y: cy - spreadY, radius: Math.round(26 * rScale), color: '#c084fc', pulse: 2 },
+          { id: 4, name: '维也纳·绝唱', role: 'climax', x: cx + spreadX, y: cy + spreadY * 0.54, radius: Math.round(25 * rScale), color: '#c084fc', pulse: 3 },
+          { id: 5, name: '林弦·核心共鸣', role: 'core', x: cx, y: cy - 15, radius: Math.round(30 * rScale), color: '#fbbf24', pulse: 4 }
         ];
 
         this.links = [];
+        this.selectedNode = null;
       }
 
       initCanvasEvents() {
         const getCanvasCoord = (e) => {
           const rect = this.canvas.getBoundingClientRect();
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+          const clientX = touch ? touch.clientX : e.clientX;
+          const clientY = touch ? touch.clientY : e.clientY;
           return {
             x: clientX - rect.left,
             y: clientY - rect.top
           };
         };
 
+        let startPos = { x: 0, y: 0 };
+        let hasDragged = false;
+
         const handleStart = (e) => {
+          if (e.cancelable) e.preventDefault();
           const pos = getCanvasCoord(e);
           this.mousePos = pos;
+          startPos = { x: pos.x, y: pos.y };
+          hasDragged = false;
+
+          let hitNode = null;
           for (let node of this.nodes) {
             const dist = Math.hypot(node.x - pos.x, node.y - pos.y);
-            if (dist <= node.radius + 15) {
-              this.activeDragNode = node;
-              this.isDragging = true;
-              this.audio.playArcSpark();
+            if (dist <= node.radius + 38) {
+              hitNode = node;
               break;
             }
+          }
+
+          if (hitNode) {
+            this.activeDragNode = hitNode;
+            this.isDragging = true;
+            this.audio.playArcSpark();
           }
         };
 
         const handleMove = (e) => {
+          if (e.cancelable && this.isDragging) e.preventDefault();
           const pos = getCanvasCoord(e);
           this.mousePos = pos;
+          if (Math.hypot(pos.x - startPos.x, pos.y - startPos.y) > 12) {
+            hasDragged = true;
+          }
         };
 
-        const handleEnd = () => {
+        const handleEnd = (e) => {
+          const pos = getCanvasCoord(e);
           if (this.activeDragNode) {
-            // 检查释放位置是否靠近另一个节点建立连接
-            for (let target of this.nodes) {
-              if (target !== this.activeDragNode) {
-                const dist = Math.hypot(target.x - this.mousePos.x, target.y - this.mousePos.y);
-                if (dist <= target.radius + 25) {
-                  this.createSynapseLink(this.activeDragNode, target);
-                  break;
+            if (hasDragged) {
+              // 拖拽建立连接：检查释放位置是否靠近另一个节点
+              for (let target of this.nodes) {
+                if (target !== this.activeDragNode) {
+                  const dist = Math.hypot(target.x - pos.x, target.y - pos.y);
+                  if (dist <= target.radius + 55) {
+                    this.createSynapseLink(this.activeDragNode, target);
+                    break;
+                  }
                 }
               }
+            } else {
+              // 单击/轻触建立连接 (Tap-to-Connect)
+              if (!this.selectedNode) {
+                this.selectedNode = this.activeDragNode;
+                this.audio.playPianoNote(520, 1.0, 0.15);
+              } else if (this.selectedNode === this.activeDragNode) {
+                this.selectedNode = null; // 再次点击取消选中
+              } else {
+                this.createSynapseLink(this.selectedNode, this.activeDragNode);
+                this.selectedNode = null;
+              }
             }
+          } else {
+            // 点击空白区域取消选中
+            this.selectedNode = null;
           }
           this.activeDragNode = null;
           this.isDragging = false;
@@ -972,7 +1105,7 @@
 
         this.canvas.addEventListener('touchstart', handleStart, { passive: false });
         window.addEventListener('touchmove', handleMove, { passive: false });
-        window.addEventListener('touchend', handleEnd);
+        window.addEventListener('touchend', handleEnd, { passive: false });
       }
 
       createSynapseLink(nodeA, nodeB) {
@@ -1098,6 +1231,18 @@
 没有名利场的毒药，没有寡头的剥削。
 只有一杯温热的黑咖啡，和琴键上静静流淌的初雨。`;
         }
+
+        // 动态填充专属终局鉴定证书
+        const certDetails = document.getElementById('cert-details');
+        if (certDetails) {
+          certDetails.innerHTML = `
+            <div>▶ <b>神经考古师:</b> ARCHIVIST-07 // <b>样本受体:</b> 林弦 (1958-2024)</div>
+            <div>▶ <b>记忆全域共鸣率:</b> 100.0% // <b>突触回路完整度:</b> 100%</div>
+            <div>▶ <b>达成终局:</b> ${sub.textContent}</div>
+            <div>▶ <b>声纹波谱匹配:</b> 黄金和弦回路已完全解密锁定</div>
+            <div style="margin-top:4px; color:#94a3b8; font-style:italic;">“每一个被遗忘的突触，都曾是一整颗跳动的心脏。在数字海洋的彼岸，所有的音符终将汇聚。”</div>
+          `;
+        }
       }
 
       initUIEvents() {
@@ -1107,18 +1252,28 @@
         });
 
         document.getElementById('btn-auto').addEventListener('click', () => {
-          // 辅助织网：自动将最近两个未连接节点连线
+          // 一键全神经共鸣：连接所有突触节点达成 100% 谐振回路
           for (let i = 0; i < this.nodes.length; i++) {
             for (let j = i + 1; j < this.nodes.length; j++) {
               const a = this.nodes[i];
               const b = this.nodes[j];
               const exists = this.links.some(l => (l.from === a && l.to === b) || (l.from === b && l.to === a));
               if (!exists) {
-                this.createSynapseLink(a, b);
-                return;
+                this.links.push({ from: a, to: b, energy: 1 });
               }
             }
           }
+          this.circuitPercent = 100;
+          document.getElementById('txt-circuit-percent').textContent = `100%`;
+          document.getElementById('bar-circuit').style.width = `100%`;
+
+          // 奏响宏大和弦琶音
+          this.audio.playPianoNote(330, 2.0, 0.2);
+          setTimeout(() => this.audio.playPianoNote(440, 2.0, 0.25), 100);
+          setTimeout(() => this.audio.playPianoNote(554.37, 2.5, 0.3), 200);
+          setTimeout(() => this.audio.playPianoNote(659.25, 3.0, 0.35), 300);
+
+          this.advanceChapter();
         });
 
         document.getElementById('btn-skip').addEventListener('click', () => {
@@ -1160,6 +1315,27 @@
           this.spawnInitialNodes();
           this.advanceChapter();
         });
+
+        // 复制公证书
+        const btnCopyCert = document.getElementById('btn-copy-cert');
+        if (btnCopyCert) {
+          btnCopyCert.addEventListener('click', () => {
+            const certText = "【神经考古所 · 记忆重构终局鉴定书】\n" +
+              "档案编号: NO. SYNAPSE-8821\n" +
+              "神经考古师: ARCHIVIST-07 // 样本受体: 林弦\n" +
+              "达成终局: " + document.getElementById('ending-subtitle').textContent + "\n" +
+              "记忆共鸣率: 100.0% // 突触回路: 完整闭合\n" +
+              "终局箴言: “每一个被遗忘的突触，都曾是一整颗跳动的心脏。在数字海洋的彼岸，所有的音符终将汇聚。”\n" +
+              "体验作品: 神经织网：记忆回响实验室\n" +
+              "访问链接: " + window.location.href;
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(certText).then(() => {
+                btnCopyCert.textContent = "✓ 已复制鉴定证书！";
+                setTimeout(() => { btnCopyCert.textContent = "📋 一键复制终局鉴定公证书"; }, 2500);
+              });
+            }
+          });
+        }
       }
 
       /* ================= 声纹解密示波器调频微玩法 ================= */
@@ -1396,6 +1572,27 @@
 
           this.ctx.restore();
         }
+
+        // 6. 渲染点触选中节点的共鸣光环 (Tap-to-Connect 视觉反馈)
+        if (this.selectedNode) {
+          this.ctx.save();
+          this.ctx.strokeStyle = '#fbbf24';
+          this.ctx.lineWidth = 2.5;
+          this.ctx.setLineDash([4, 4]);
+          this.ctx.shadowColor = '#fbbf24';
+          this.ctx.shadowBlur = 14;
+          this.ctx.beginPath();
+          const haloR = this.selectedNode.radius + 18 + Math.sin(Date.now() * 0.008) * 3;
+          this.ctx.arc(this.selectedNode.x, this.selectedNode.y, haloR, 0, Math.PI * 2);
+          this.ctx.stroke();
+
+          // 提示标签
+          this.ctx.font = 'bold 12px "Consolas", sans-serif';
+          this.ctx.fillStyle = '#fbbf24';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText('▶ 轻触下一突触以连通', this.selectedNode.x, this.selectedNode.y - haloR - 8);
+          this.ctx.restore();
+        }
       }
 
       loop() {
@@ -1407,8 +1604,8 @@
 
     // 页面初始化装载
     window.addEventListener('load', () => {
-      const lab = new SynapseWeaverLab();
-      lab.loop();
+      window.game = new SynapseWeaverLab();
+      window.game.loop();
     });
   </script>
 </body>
