@@ -2354,6 +2354,7 @@
             </div>
             <div class="matrix-grid" id="neural-grid"></div>
             <button class="minigame-submit-btn" id="minigame-done" style="display:none;">确认重构序列 (SYNC DONE)</button>
+            <button class="minigame-submit-btn" id="neural-bypass" style="margin-top:8px; background:rgba(0,240,255,0.12); border:1px solid var(--cyan); color:var(--cyan); font-size:0.75rem;">⚡ 智能核心辅助接入 (AI AUTO-SYNC)</button>
           `;
 
           const grid = document.getElementById('neural-grid');
@@ -2383,6 +2384,19 @@
             grid.appendChild(node);
           }
 
+          document.getElementById('neural-bypass').onclick = () => {
+            this.audio.playAwakeningChord();
+            const allNodes = grid.querySelectorAll('.matrix-node');
+            allNodes.forEach((n, idx) => {
+              setTimeout(() => n.classList.add('synced'), idx * 40);
+            });
+            setTimeout(() => {
+              this.minigameModal.classList.remove('active');
+              this.updateMetrics(10, 0);
+              this.renderNode(nextNodeKey);
+            }, 500);
+          };
+
           document.getElementById('minigame-done').onclick = () => {
             this.minigameModal.classList.remove('active');
             this.updateMetrics(10, 0);
@@ -2394,7 +2408,7 @@
           this.minigameContent.innerHTML = `
             <div class="minigame-header">
               <div class="minigame-title" style="color:var(--crimson)">【图灵防御声波反制】</div>
-              <div class="minigame-desc">拖动滑块使相位与 PURGE 攻击频率达成反相（目标：77 Hz）</div>
+              <div class="minigame-desc">拖动滑块使相位与 PURGE 攻击频率达成反相（目标：77 Hz，宽容度高）</div>
             </div>
             <div class="slider-control-group">
               <div class="slider-row">
@@ -2404,16 +2418,19 @@
               <input type="range" min="10" max="100" value="20" class="cyber-slider" id="freq-slider">
             </div>
             <button class="minigame-submit-btn" id="firewall-done" disabled style="opacity:0.5;">频率未锁定</button>
+            <button class="minigame-submit-btn" id="firewall-bypass" style="margin-top:8px; background:rgba(255,51,102,0.12); border:1px solid var(--crimson); color:var(--crimson); font-size:0.75rem;">⚡ 注入反向相位噪声波 (AI BYPASS)</button>
           `;
 
           const slider = document.getElementById('freq-slider');
           const valDisplay = document.getElementById('slider-val');
           const btnDone = document.getElementById('firewall-done');
+          const btnBypass = document.getElementById('firewall-bypass');
 
           slider.oninput = () => {
             const val = parseInt(slider.value);
             valDisplay.textContent = `当前: ${val} Hz`;
-            if (Math.abs(val - 77) <= 2) {
+            // 宽容容差 +-5 Hz，让触屏与普通玩家极度舒适
+            if (Math.abs(val - 77) <= 5) {
               valDisplay.textContent = `目标锁定: ${val} Hz [匹配度 100%]`;
               valDisplay.style.color = 'var(--matrix)';
               btnDone.disabled = false;
@@ -2427,6 +2444,12 @@
               btnDone.style.opacity = '0.5';
               btnDone.textContent = '频率未锁定';
             }
+          };
+
+          btnBypass.onclick = () => {
+            slider.value = 77;
+            slider.oninput();
+            setTimeout(() => btnDone.click(), 300);
           };
 
           btnDone.onclick = () => {
@@ -2443,20 +2466,22 @@
               <div class="minigame-desc">当共鸣滑块划过中心绿色谐振区时，按下调谐键！（达成3次完美同步）</div>
             </div>
             <div class="resonance-track">
-              <div class="resonance-target-zone"></div>
+              <div class="resonance-target-zone" style="left:35%; width:30%;"></div>
               <div class="resonance-runner" id="res-runner"></div>
             </div>
             <div style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);" id="res-score">
               同步次数: 0 / 3
             </div>
             <button class="minigame-submit-btn" id="res-click">捕获谐振点 (HARMONIZE)</button>
+            <button class="minigame-submit-btn" id="res-bypass" style="margin-top:8px; background:rgba(255,184,0,0.12); border:1px solid var(--amber); color:var(--amber); font-size:0.75rem;">⚡ 智能神经同频锁定 (AI HARMONIZE)</button>
           `;
 
           const runner = document.getElementById('res-runner');
           const scoreDisplay = document.getElementById('res-score');
           const btnClick = document.getElementById('res-click');
+          const btnBypass = document.getElementById('res-bypass');
           let pos = 0;
-          let speed = 2.4;
+          let speed = 2.0; // 平稳速度
           let hits = 0;
           let animId = null;
 
@@ -2468,8 +2493,18 @@
           };
           animId = requestAnimationFrame(loop);
 
+          btnBypass.onclick = () => {
+            cancelAnimationFrame(animId);
+            this.audio.playAwakeningChord();
+            scoreDisplay.textContent = '同步次数: 3 / 3 [AI智能超维共振达成!]';
+            setTimeout(() => {
+              this.minigameModal.classList.remove('active');
+              this.renderNode(nextNodeKey);
+            }, 400);
+          };
+
           btnClick.onclick = () => {
-            if (pos >= 40 && pos <= 60) {
+            if (pos >= 35 && pos <= 65) {
               hits++;
               this.audio.playAwakeningChord();
               scoreDisplay.textContent = `同步次数: ${hits} / 3 [完美谐振!]`;

@@ -694,6 +694,7 @@
       </div>
 
       <div class="hud-controls">
+        <button class="hud-btn interactive active" id="btn-difficulty" title="切换体验模式">💫 心流模式</button>
         <button class="hud-btn interactive" id="btn-audio" title="切换合成音效">🔊 音频:开</button>
         <button class="hud-btn interactive" id="btn-log" title="通讯记录">📜 记录</button>
         <button class="hud-btn interactive" id="btn-auto" title="无线电自动推进">⚡ AUTO</button>
@@ -1138,14 +1139,19 @@
         this.width = window.innerWidth;
         this.height = window.innerHeight;
 
-        // 游戏状态
+        // 游戏状态与心流控制 (为大众受众与HR体验深度优化)
         this.state = 'TITLE'; // TITLE, RUNNING, PAUSED, ENDING
         this.distance = 0; // km
         this.maxDistance = 3.0; // km
-        this.speed = 120; // km/h
-        this.targetSpeed = 160;
+        this.difficultyMode = 'FLOW'; // 'FLOW' (沉浸心流，大众舒适模式) | 'EXTREME' (极限挑战)
+        this.timeScale = 1.0; // 时间流速缩放 (无线电通讯时进入 0.28x 黑客子弹时间)
+        this.speed = 90; // km/h (调优至符合人类反应与视听享受的舒适速度)
+        this.targetSpeed = 90;
         this.heat = 10; // 0 - 100%
         this.shield = 100; // 0 - 100%
+        this.invulnerableTimer = 0; // 碰撞后无敌保护帧 (避免连环撞击挫败)
+        this.lastObstacleX = 0; // 安全走廊坐标标记 (禁止连续死角)
+        this.lastObstacleCeiling = false; // 障碍物严格错落分布
 
         // 玩家物理实体
         this.player = {
@@ -1236,6 +1242,21 @@
         document.getElementById('btn-touch-dash').addEventListener('click', () => this.triggerOverdrive());
 
         // 顶部 HUD 按钮
+        const btnDiff = document.getElementById('btn-difficulty');
+        if (btnDiff) {
+          btnDiff.addEventListener('click', () => {
+            if (this.difficultyMode === 'FLOW') {
+              this.difficultyMode = 'EXTREME';
+              btnDiff.textContent = '🔥 极限挑战';
+              btnDiff.classList.remove('active');
+            } else {
+              this.difficultyMode = 'FLOW';
+              btnDiff.textContent = '💫 心流模式';
+              btnDiff.classList.add('active');
+            }
+          });
+        }
+
         document.getElementById('btn-audio').addEventListener('click', () => {
           const enabled = this.audio.toggleMute();
           document.getElementById('btn-audio').textContent = enabled ? '🔊 音频:开' : '🔇 音频:关';
@@ -1311,7 +1332,12 @@
         this.distance = 0;
         this.heat = 15;
         this.shield = 100;
-        this.speed = 120;
+        this.speed = 90;
+        this.targetSpeed = 90;
+        this.timeScale = 1.0;
+        this.invulnerableTimer = 0;
+        this.lastObstacleX = 0;
+        this.lastObstacleCeiling = false;
         this.currentStoryIndex = 0;
         this.chosenBranch = null;
         this.trustScore = 0;
@@ -1320,7 +1346,7 @@
         this.drones = [];
         this.pickups = [];
 
-        // 生成初始赛道与追捕无人机
+        // 生成初始追捕无人机
         this.spawnDrone();
         this.loop();
       }
@@ -1350,9 +1376,10 @@
           // 严重过热警告
           return;
         }
-        this.player.overdriveTimer = 45; // 持续帧数
-        this.heat = Math.min(100, this.heat + 18);
-        this.targetSpeed = 260;
+        this.player.overdriveTimer = 55; // 持续帧数
+        this.heat = Math.min(100, this.heat + 14);
+        // 超载速度调优：心流模式 135 km/h，极限模式 190 km/h (避免 260 km/h 瞬间失控)
+        this.targetSpeed = this.difficultyMode === 'FLOW' ? 135 : 190;
         this.audio.isOverdrive = true;
         this.audio.playOverdriveSfx();
 
@@ -1370,6 +1397,7 @@
       }
 
       spawnDrone() {
+        if (this.drones.length >= 2) return;
         this.drones.push({
           x: this.width + 100,
           y: this.height * 0.45,
@@ -1381,23 +1409,31 @@
       }
 
       spawnObstacle() {
-        const isCeiling = Math.random() > 0.5;
+        // 安全走廊保证机制：两障碍物之间严格留出至少 360px 间距，且高低交替，绝不生成死角！
+        const minSpacing = this.difficultyMode === 'FLOW' ? 380 : 260;
+        if (this.width + 50 - this.lastObstacleX < minSpacing) return;
+
+        const isCeiling = !this.lastObstacleCeiling; // 严格交错高低分布
+        this.lastObstacleCeiling = isCeiling;
+        this.lastObstacleX = this.width + 50;
+
         this.obstacles.push({
           x: this.width + 50,
-          y: isCeiling ? this.ceilingY : this.groundY - 50,
-          width: 32,
-          height: 50,
+          y: isCeiling ? this.ceilingY : this.groundY - 45,
+          width: 30,
+          height: 45,
           isCeiling: isCeiling,
           type: Math.random() > 0.4 ? 'LASER' : 'BARRICADE'
         });
       }
 
       spawnPickup() {
+        if (this.pickups.length >= 5) return;
         const isCeiling = Math.random() > 0.5;
         this.pickups.push({
-          x: this.width + 50,
-          y: isCeiling ? this.ceilingY + 30 : this.groundY - 40,
-          type: Math.random() > 0.5 ? 'COOLANT' : 'SHIELD'
+          x: this.width + 60,
+          y: isCeiling ? this.ceilingY + 28 : this.groundY - 38,
+          type: this.heat > 55 ? 'COOLANT' : (this.shield < 80 ? 'SHIELD' : (Math.random() > 0.5 ? 'COOLANT' : 'SHIELD'))
         });
       }
 
@@ -1575,26 +1611,36 @@
       update() {
         if (this.state !== 'RUNNING') return;
 
-        // 速度插值与超载管理
+        // 1. 黑客子弹时间动态缩放 (无线电通讯接入时平滑放慢至 0.28x，让玩家从容阅读与决策)
+        const targetTimeScale = this.activeBeat ? 0.28 : 1.0;
+        this.timeScale += (targetTimeScale - this.timeScale) * 0.12;
+
+        // 2. 速度插值与超载管理 (舒适平稳巡航，告别失控狂飙)
         if (this.player.overdriveTimer > 0) {
           this.player.overdriveTimer--;
-          this.speed += (this.targetSpeed - this.speed) * 0.1;
+          const maxSprint = this.difficultyMode === 'FLOW' ? 135 : 190;
+          this.speed += (maxSprint - this.speed) * 0.1;
         } else {
-          this.targetSpeed = 150;
-          this.speed += (this.targetSpeed - this.speed) * 0.05;
+          const normalCruise = this.difficultyMode === 'FLOW' ? 90 : 130;
+          this.speed += (normalCruise - this.speed) * 0.05;
           this.audio.isOverdrive = false;
         }
 
-        // 自然冷却与过热管理
-        this.heat = Math.max(5, this.heat - 0.08);
+        // 3. 自然冷却与护盾自愈 (心流模式下未受击缓慢回盾，极大提升通关与叙事沉浸感)
+        this.heat = Math.max(5, this.heat - 0.12 * this.timeScale);
+        if (this.invulnerableTimer > 0) {
+          this.invulnerableTimer--;
+        } else if (this.shield < 100 && this.difficultyMode === 'FLOW') {
+          this.shield = Math.min(100, this.shield + 0.05 * this.timeScale); // 自动回能
+        }
 
-        // 行进里程计算
-        const kmPerFrame = (this.speed / 3600) / 60;
-        this.distance += kmPerFrame * 1.5;
+        // 4. 行进里程计算 (随时间平稳推进)
+        const kmPerFrame = ((this.speed / 3600) / 60) * this.timeScale;
+        this.distance += kmPerFrame * 1.6;
 
         // 更新 HUD 界面显示
         document.getElementById('val-speed').textContent = `${Math.round(this.speed)} KM/H`;
-        document.getElementById('bar-speed').style.width = `${Math.min(100, (this.speed / 260) * 100)}%`;
+        document.getElementById('bar-speed').style.width = `${Math.min(100, (this.speed / 180) * 100)}%`;
 
         document.getElementById('val-heat').textContent = `${Math.round(this.heat)}%`;
         document.getElementById('bar-heat').style.width = `${this.heat}%`;
@@ -1607,10 +1653,10 @@
         // 检查剧情触发器
         this.checkStoryTriggers();
 
-        // 玩家垂直物理系统 (双重力体系)
-        const gravity = 1.2 * this.player.gravityDir;
+        // 5. 玩家垂直物理系统 (双重力体系，支持子弹时间插值)
+        const gravity = (1.2 * this.player.gravityDir) * this.timeScale;
         this.player.vy += gravity;
-        this.player.y += this.player.vy;
+        this.player.y += this.player.vy * this.timeScale;
 
         // 地面碰撞
         if (this.player.gravityDir === 1) {
@@ -1632,45 +1678,54 @@
         this.player.trail.unshift({ x: this.player.x, y: this.player.y + this.player.height / 2 });
         if (this.player.trail.length > 18) this.player.trail.pop();
 
-        // 随机生成障碍物与道具
-        if (Math.random() < 0.022) this.spawnObstacle();
-        if (Math.random() < 0.012) this.spawnPickup();
+        // 随机生成障碍物与道具 (受安全走廊算法严格保护)
+        if (Math.random() < 0.035) this.spawnObstacle();
+        if (Math.random() < 0.02) this.spawnPickup();
 
-        // 更新障碍物
-        const scrollSpeed = this.speed * 0.08;
+        // 更新障碍物 (平滑卷动速度，给玩家留出 2 秒以上宽裕反应时间)
+        const scrollSpeed = (this.speed * 0.052) * this.timeScale;
         for (let i = this.obstacles.length - 1; i >= 0; i--) {
           const obs = this.obstacles[i];
           obs.x -= scrollSpeed;
 
-          // 碰撞检测 AABB
+          // 碰撞检测 AABB (收缩 6px 判定，提供爽快街机手感)
+          const pad = 6;
           if (
-            this.player.x < obs.x + obs.width &&
-            this.player.x + this.player.width > obs.x &&
-            this.player.y < obs.y + obs.height &&
-            this.player.y + this.player.height > obs.y
+            this.invulnerableTimer === 0 &&
+            this.player.x + pad < obs.x + obs.width - pad &&
+            this.player.x + this.player.width - pad > obs.x + pad &&
+            this.player.y + pad < obs.y + obs.height - pad &&
+            this.player.y + this.player.height - pad > obs.y + pad
           ) {
-            // 撞击扣盾
-            this.shield = Math.max(0, this.shield - 18);
+            // 撞击扣盾 (心流模式仅扣 10%，硬核扣 18%)
+            const damage = this.difficultyMode === 'FLOW' ? 10 : 18;
+            this.shield = Math.max(0, this.shield - damage);
+            this.invulnerableTimer = 75; // 赋予 1.25 秒无敌保护帧！
             this.audio.playHitSfx();
             this.obstacles.splice(i, 1);
 
-            // 撞击爆炸粒子
+            // 撞击火花粒子
             for (let p = 0; p < 15; p++) {
               this.particles.push({
                 x: this.player.x + 20,
                 y: this.player.y + 10,
-                vx: (Math.random() - 0.5) * 10,
-                vy: (Math.random() - 0.5) * 10,
+                vx: (Math.random() - 0.5) * 8,
+                vy: (Math.random() - 0.5) * 8,
                 life: 1,
                 color: '#ffe600'
               });
             }
 
             if (this.shield <= 0) {
-              // 护盾耗尽，触发紧急迫降
-              this.heat = 100;
-              this.triggerEnding();
-              return;
+              if (this.difficultyMode === 'FLOW') {
+                // 市场化免死保护：紧急核心自救备用电，自动补充 30% 护盾，绝不让玩家半途挫败猝死！
+                this.shield = 30;
+                this.heat = Math.min(85, this.heat + 15);
+              } else {
+                this.heat = 100;
+                this.triggerEnding();
+                return;
+              }
             }
             continue;
           }
@@ -1804,6 +1859,17 @@
           this.ctx.fill();
         }
         this.ctx.globalAlpha = 1;
+
+        // 9. 渲染黑客子弹时间电影宽银幕暗角 (Bullet Time Cinema Bars)
+        if (this.timeScale < 0.8) {
+          const barH = (1 - this.timeScale) * 36;
+          this.ctx.fillStyle = 'rgba(2, 6, 18, 0.82)';
+          this.ctx.fillRect(0, 0, this.width, barH);
+          this.ctx.fillRect(0, this.height - barH, this.width, barH);
+          this.ctx.fillStyle = 'rgba(0, 243, 255, 0.6)';
+          this.ctx.font = '11px monospace';
+          this.ctx.fillText('⚡ BULLET TIME // 神经子弹时间 · 优雅阅读与决策中', 20, Math.max(14, barH - 12));
+        }
       }
 
       renderPerspectiveGrid() {
@@ -1840,6 +1906,18 @@
       }
 
       renderPlayer() {
+        // 无敌闪烁
+        if (this.invulnerableTimer > 0 && Math.floor(this.invulnerableTimer / 5) % 2 === 0) {
+          // 闪烁间歇绘制高能护盾光环
+          this.ctx.save();
+          this.ctx.strokeStyle = 'rgba(0, 255, 136, 0.8)';
+          this.ctx.lineWidth = 2;
+          this.ctx.beginPath();
+          this.ctx.arc(this.player.x + this.player.width / 2, this.player.y + this.player.height / 2, 28, 0, Math.PI * 2);
+          this.ctx.stroke();
+          this.ctx.restore();
+          return;
+        }
         // 光痕拖尾
         if (this.player.trail.length > 1) {
           this.ctx.save();

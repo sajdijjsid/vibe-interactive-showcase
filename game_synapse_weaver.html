@@ -612,11 +612,14 @@
         </div>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-        <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);" id="decrypt-feedback">
-          提示：微调滑动条，让动态声纹完全吻合黄金谐振包络
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); flex: 1;" id="decrypt-feedback">
+          提示：微调滑动条或一键智能校准，让动态声纹吻合黄金包络
         </span>
-        <button class="btn-bio-primary interactive" id="btn-submit-decrypt" style="padding: 8px 24px; font-size: 0.85rem;">
+        <button class="btn-qol interactive" id="btn-autotune" style="background: rgba(251, 191, 36, 0.15); border-color: #fbbf24; color: #fbbf24; white-space: nowrap;">
+          ⚡ 智能锁定 (Auto-Tune)
+        </button>
+        <button class="btn-bio-primary interactive" id="btn-submit-decrypt" style="padding: 8px 24px; font-size: 0.85rem; white-space: nowrap;">
           谐振锁定
         </button>
       </div>
@@ -1177,21 +1180,21 @@
           valHarm.textContent = Number(sliderHarm.value).toFixed(1);
           valQ.textContent = Number(sliderQ.value).toFixed(1);
 
-          // 黄金目标：Freq 440, Harm 4.0, Q 12.0
+          // 黄金目标：Freq 440, Harm 4.0, Q 12.0 (提升宽容度，大众用户体验友好)
           const fDiff = Math.abs(sliderFreq.value - 440);
           const hDiff = Math.abs(sliderHarm.value - 4);
           const qDiff = Math.abs(sliderQ.value - 12);
 
-          const match = Math.max(0, 100 - (fDiff * 0.2 + hDiff * 8 + qDiff * 4));
+          const match = Math.max(0, 100 - (fDiff * 0.14 + hDiff * 5.5 + qDiff * 3));
           this.resonancePercent = Math.round(match);
           document.getElementById('txt-resonance-percent').textContent = `${this.resonancePercent}%`;
           document.getElementById('bar-resonance').style.width = `${this.resonancePercent}%`;
 
-          if (this.resonancePercent >= 88) {
-            feedback.textContent = '★ 谐振波形完美契合！已锁定林弦核心声纹！';
+          if (this.resonancePercent >= 75) {
+            feedback.textContent = '★ 谐振波形契合达标！已锁定林弦核心声纹！';
             feedback.style.color = '#fbbf24';
           } else {
-            feedback.textContent = '提示：微调滑动条，让动态声纹完全吻合黄金谐振包络';
+            feedback.textContent = '提示：微调滑动条或点击智能锁定，吻合黄金谐振包络';
             feedback.style.color = '#64748b';
           }
         };
@@ -1200,15 +1203,29 @@
         sliderHarm.addEventListener('input', updateSliders);
         sliderQ.addEventListener('input', updateSliders);
 
+        // 智能一键对齐辅助
+        const btnAutotune = document.getElementById('btn-autotune');
+        if (btnAutotune) {
+          btnAutotune.addEventListener('click', () => {
+            sliderFreq.value = 440;
+            sliderHarm.value = 4;
+            sliderQ.value = 12;
+            updateSliders();
+            setTimeout(() => {
+              document.getElementById('btn-submit-decrypt').click();
+            }, 350);
+          });
+        }
+
         document.getElementById('btn-submit-decrypt').addEventListener('click', () => {
-          if (this.resonancePercent >= 80) {
+          if (this.resonancePercent >= 70) {
             this.audio.playPianoNote(440, 3.5, 0.5);
             this.audio.playPianoNote(554.37, 3.5, 0.4);
             this.audio.playPianoNote(659.25, 3.5, 0.45);
             document.getElementById('modal-decrypt').classList.remove('open');
             this.advanceChapter();
           } else {
-            feedback.textContent = '【谐振失真】匹配度未达标，请继续校准频率！';
+            feedback.textContent = '【谐振失真】匹配度未达标(需≥70%)，可点击一键智能锁定！';
             feedback.style.color = '#f43f5e';
           }
         });
