@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>光之织流：星火守望者 (Lumina Weaver: Starlight Archive)</title>
+  <style>
+    :root {
+      --bg-space: #030611;
+      --panel-bg: rgba(6, 12, 28, 0.85);
+      --panel-border: rgba(0, 240, 255, 0.28);
+      --cyan-light: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.55);
+      --gold-light: #ffb82e;
+      --gold-glow: rgba(255, 184, 46, 0.55);
+      --purple-light: #c084fc;
+      --purple-glow: rgba(192, 132, 252, 0.55);
+      --core-active: #ffffff;
+      --text-main: #e2f1ff;
+      --text-muted: #78909c;
+      --font-mono: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+      --font-serif: 'Noto Serif SC', 'Songti SC', 'STSong', serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-space);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+    }
+
+    /* 渲染主布层 */
+    #render-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* 电影暗角与深空渐晕 */
+    .cinematic-vignette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(1, 3, 10, 0.82) 100%),
+                  linear-gradient(rgba(1, 4, 12, 0.1) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 100%, 100% 3px;
+    }
+
+    /* 主UI层 */
+    #ui-container {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(10px, 2vw, 20px);
+      pointer-events: none;
+    }
+
+    /* 顶部航天仪表面板 */
+    header.hud-header {
+      pointer-events: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.7);
+    }
+
+    .station-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .station-icon {
+      width: 32px;
+      height: 32px;
+      border: 1.5px solid var(--cyan-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px var(--cyan-glow);
+      position: relative;
+    }
+    .station-icon::after {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--cyan-light);
+      border-radius: 50%;
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(0.8); opacity: 0.6; }
+      50% { transform: scale(1.4); opacity: 1; }
+    }
+
+    .station-title h1 {
+      font-size: clamp(13px, 1.6vw, 17px);
+      letter-spacing: 2px;
+      font-weight: 600;
+      color: #fff;
+      text-transform: uppercase;
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+    .station-title p {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .hud-metrics {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .metric-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .metric-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .metric-value {
+      font-size: 14px;
+      font-family: var(--font-mono);
+      font-weight: bold;
+      color: var(--cyan-light);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+    .hud-btn {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      transition: all 0.2s;
+    }
+    .hud-btn:hover {
+      background: rgba(0, 240, 255, 0.22);
+      border-color: var(--cyan-light);
+      box-shadow: 0 0 10px var(--cyan-glow);
+      color: #fff;
+    }
+    .hud-btn.active {
+      background: var(--cyan-light);
+      color: #030611;
+      font-weight: bold;
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    /* 剧情对白字幕/视听叙事面板 (AVG系统) */
+    #story-modal {
+      pointer-events: auto;
+      align-self: center;
+      width: 100%;
+      max-width: 860px;
+      background: linear-gradient(180deg, rgba(8, 16, 36, 0.94) 0%, rgba(4, 8, 20, 0.98) 100%);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      border-radius: 10px;
+      padding: 16px 22px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 240, 255, 0.15);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      margin-bottom: 8px;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    #story-modal.hidden {
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+    }
+
+    .speaker-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 6px;
+    }
+    .speaker-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .speaker-avatar-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--cyan-light);
+      box-shadow: 0 0 8px var(--cyan-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #030611;
+      font-weight: bold;
+    }
+    .speaker-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--cyan-light);
+      text-transform: uppercase;
+    }
+    .act-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--gold-light);
+      background: rgba(255, 184, 46, 0.12);
+      border: 1px solid rgba(255, 184, 46, 0.3);
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+
+    .dialogue-content {
+      font-size: clamp(14px, 1.7vw, 16px);
+      line-height: 1.75;
+      color: #f0f6fc;
+      min-height: 54px;
+      font-family: var(--font-sans);
+      letter-spacing: 0.5px;
+    }
+    .dialogue-content.italic {
+      font-style: italic;
+      color: #93c5fd;
+    }
+
+    .dialogue-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .qol-ctrls {
+      display: flex;
+      gap: 10px;
+    }
+    .qol-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      transition: all 0.2s;
+    }
+    .qol-btn:hover, .qol-btn.active {
+      border-color: var(--cyan-light);
+      color: var(--cyan-light);
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .btn-next-dialogue {
+      background: linear-gradient(90deg, rgba(0, 240, 255, 0.2), rgba(0, 240, 255, 0.4));
+      border: 1px solid var(--cyan-light);
+      color: #fff;
+      padding: 6px 18px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 12px var(--cyan-glow);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-next-dialogue:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 20px var(--cyan-light);
+    }
+
+    /* 历史记录浮层 LOG */
+    #backlog-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(2, 5, 14, 0.92);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      padding: clamp(20px, 4vw, 50px);
+      backdrop-filter: blur(20px);
+      transition: opacity 0.2s ease;
+    }
+    #backlog-overlay.hidden {
+      display: none;
+    }
+    .backlog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .backlog-title {
+      font-size: 18px;
+      color: var(--cyan-light);
+      letter-spacing: 2px;
+      font-weight: 600;
+    }
+    .backlog-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-right: 12px;
+    }
+    .backlog-item {
+      background: rgba(13, 22, 45, 0.5);
+      border-left: 3px solid var(--cyan-light);
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+    }
+    .backlog-item .name {
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--cyan-light);
+      margin-bottom: 4px;
+    }
+    .backlog-item .text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #e2f1ff;
+    }
+
+    /* 底部操作与辅助提示条 */
+    footer.hud-footer {
+      pointer-events: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px 18px;
+      backdrop-filter: blur(12px);
+    }
+    .controls-hint {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .controls-hint span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .key-badge {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    /* 关卡完成仪式全屏庆典 */
+    #victory-banner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 30;
+      background: radial-gradient(circle, rgba(12, 28, 65, 0.95) 0%, rgba(3, 7, 18, 0.98) 100%);
+      border: 2px solid var(--gold-light);
+      border-radius: 12px;
+      padding: 30px 45px;
+      text-align: center;
+      box-shadow: 0 0 60px rgba(255, 184, 46, 0.4), inset 0 0 30px rgba(255, 184, 46, 0.2);
+      backdrop-filter: blur(15px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: auto;
+      transition: all 0.4s ease;
+    }
+    #victory-banner.hidden {
+      display: none;
+    }
+    .victory-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--gold-light);
+      text-transform: uppercase;
+      text-shadow: 0 0 15px var(--gold-glow);
+    }
+    .victory-desc {
+      font-size: 14px;
+      color: #e2f1ff;
+      max-width: 480px;
+      line-height: 1.6;
+    }
+    .btn-warp {
+      background: linear-gradient(90deg, #ffb82e, #ff8c00);
+      border: none;
+      color: #050b1a;
+      font-weight: bold;
+      padding: 10px 28px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(255, 184, 46, 0.6);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-warp:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px rgba(255, 184, 46, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <!-- 空间粒子与光路物理仿真画板 -->
+  <canvas id="render-canvas"></canvas>
+  <div class="cinematic-vignette"></div>
+
+  <!-- 游戏主操作与故事交互层 -->
+  <div id="ui-container">
+    <!-- 顶部状态栏 -->
+    <header class="hud-header">
+      <div class="station-brand">
+        <div class="station-icon"></div>
+        <div class="station-title">
+          <h1>光之织流：星火守望者</h1>
+          <p>STATION BEACON-07 // OBSERVATORY ARCHIVE</p>
+        </div>
+      </div>
+
+      <div class="hud-metrics">
+        <div class="metric-badge">
+          <span class="metric-label">观测坐标</span>
+          <span class="metric-value" id="disp-sector">SEC-01: 欧里西亚</span>
+        </div>
+        <div class="metric-badge">
+          <span class="metric-label">记忆谐振度</span>
+          <span class="metric-value" id="disp-resonance">0.0%</span>
+        </div>
+        <div class="metric-badge">
+          <span class="metric-label">引力透镜扭曲</span>
+          <span class="metric-value" id="disp-lens">STABLE</span>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="hud-btn" id="btn-reset-level" title="重设镜面姿态">↺ 重构光路</button>
+        <button class="hud-btn" id="btn-audio-toggle" title="声学引擎">♫ 宇宙共鸣: 开启</button>
+      </div>
+    </header>
+
+    <!-- 关卡胜利/跃迁卡片 -->
+    <div id="victory-banner" class="hidden">
+      <div class="victory-title" id="vic-title">★ 星火全息共鸣达成 ★</div>
+      <div class="victory-desc" id="vic-desc">远古文明的光子信标已被完整拼合，记忆波谱正在写入主信标档案。</div>
+      <button class="btn-warp" id="btn-warp-next">跃迁至下一星区 ➔</button>
+    </div>
+
+    <!-- 底部剧情AVG对话框系统 -->
+    <div id="story-modal">
+      <div class="speaker-meta">
+        <div class="speaker-tag">
+          <div class="speaker-avatar-circle" id="speaker-avatar">E</div>
+          <span class="speaker-name" id="speaker-name">埃利安 (Elian)</span>
+        </div>
+        <div class="act-badge" id="act-indicator">ACT I: 沉寂的余温</div>
+      </div>
+
+      <div class="dialogue-content" id="dialogue-text">
+        正在校准远日巡天偏振镜...信标-07捕获到三亿年前来自欧里西亚母星的光子残迹。
+      </div>
+
+      <div class="dialogue-footer">
+        <div class="qol-ctrls">
+          <button class="qol-btn" id="btn-log">LOG 记录</button>
+          <button class="qol-btn" id="btn-auto">AUTO 自动: 关</button>
+          <button class="qol-btn" id="btn-skip">SKIP 快进</button>
+        </div>
+        <button class="btn-next-dialogue" id="btn-next-dialogue">继续探索 ❯</button>
+      </div>
+    </div>
+
+    <!-- 底部控制提示 -->
+    <footer class="hud-footer">
+      <div class="controls-hint">
+        <span><span class="key-badge">鼠标左键拖动</span> 旋转星轨反射镜</span>
+        <span><span class="key-badge">引力偏折井</span> 弯曲掠过的光束轨迹</span>
+        <span><span class="key-badge">聚光星核</span> 充能达 100% 解锁全息遗言</span>
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11px; color: var(--cyan-light);">
+        CHRONICLE-OS v4.12
+      </div>
+    </footer>
+  </div>
+
+  <!-- 剧情历史回顾对话浮层 -->
+  <div id="backlog-overlay" class="hidden">
+    <div class="backlog-header">
+      <div class="backlog-title">星火档案 // 往昔回声 (HISTORICAL LOG)</div>
+      <button class="hud-btn" id="btn-close-log">✕ 返回</button>
+    </div>
+    <div class="backlog-list" id="backlog-container"></div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. 纯程序化 Web Audio 宇宙音效引擎 (零外部音频依赖)
+       ========================================================================= */
+    class CosmicAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.droneGain = null;
+        this.reverbNode = null;
+        this.init();
+      }
+
+      init() {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        this.ctx = new AudioContext();
+        this.createProceduralReverb();
+        this.startCosmicDrone();
+      }
+
+      ensureContext() {
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      // 生成程序化空间长混响脉冲
+      createProceduralReverb() {
+        if (!this.ctx) return;
+        const length = this.ctx.sampleRate * 2.8;
+        const impulse = this.ctx.createBuffer(2, length, this.ctx.sampleRate);
+        const left = impulse.getChannelData(0);
+        const right = impulse.getChannelData(1);
+        for (let i = 0; i < length; i++) {
+          const decay = Math.exp(-i / (this.ctx.sampleRate * 0.7));
+          left[i] = (Math.random() * 2 - 1) * decay;
+          right[i] = (Math.random() * 2 - 1) * decay;
+        }
+        this.reverbNode = this.ctx.createConvolver();
+        this.reverbNode.buffer = impulse;
+        this.reverbGain = this.ctx.createGain();
+        this.reverbGain.gain.value = 0.45;
+        this.reverbNode.connect(this.reverbGain);
+        this.reverbGain.connect(this.ctx.destination);
+      }
+
+      // 55Hz 双耳深空宇宙底噪无人机
+      startCosmicDrone() {
+        if (!this.ctx) return;
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        this.droneGain = this.ctx.createGain();
+
+        osc1.type = 'sine';
+        osc1.frequency.value = 55.0; // A1
+        osc2.type = 'triangle';
+        osc2.frequency.value = 55.8; // 双耳节拍干涉微调
+
+        filter.type = 'lowpass';
+        filter.frequency.value = 160;
+
+        this.droneGain.gain.value = 0.08;
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(this.droneGain);
+        this.droneGain.connect(this.ctx.destination);
+
+        osc1.start();
+        osc2.start();
+      }
+
+      // 镜面旋转机械阻尼微鸣
+      playMirrorRotate() {
+        if (!this.enabled || !this.ctx) return;
+        this.ensureContext();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.08);
+
+        gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.08);
+      }
+
+      // 光束碰撞水晶音 (Crystal Bell / Marimba)
+      playCrystalChime(freq = 523.25) {
+        if (!this.enabled || !this.ctx) return;
+        this.ensureContext();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const oscOver = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+
+        oscOver.type = 'sine';
+        oscOver.frequency.setValueAtTime(freq * 2.756, now); // 晶体非谐波泛音
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+
+        osc.connect(gain);
+        oscOver.connect(gain);
+        gain.connect(this.ctx.destination);
+        if (this.reverbNode) gain.connect(this.reverbNode);
+
+        osc.start(now);
+        oscOver.start(now);
+        osc.stop(now + 1.2);
+        oscOver.stop(now + 1.2);
+      }
+
+      // 关卡完成神圣星光琶音 (Lydian 梦幻五音阶)
+      playAscensionArpeggio() {
+        if (!this.enabled || !this.ctx) return;
+        this.ensureContext();
+        const baseFreqs = [261.63, 329.63, 392.00, 493.88, 587.33, 783.99]; // C E G B D G
+        baseFreqs.forEach((freq, idx) => {
+          setTimeout(() => {
+            this.playCrystalChime(freq);
+          }, idx * 160);
+        });
+      }
+
+      toggleAudio() {
+        this.enabled = !this.enabled;
+        if (this.droneGain) {
+          this.droneGain.gain.value = this.enabled ? 0.08 : 0;
+        }
+        return this.enabled;
+      }
+    }
+
+    const sound = new CosmicAudioEngine();
+
+    /* =========================================================================
+       2. 故事剧情数据字典与世界观架构
+       ========================================================================= */
+    const STORY_DATA = {
+      level1: {
+        sector: "SEC-01: 欧里西亚 (Elysia)",
+        intro: [
+          { speaker: "埃利安", avatar: "E", text: "这里是深空巡天信标-07。距离我最后一次收到地球指挥中心的信号，已经过去了六百八十个恒星年。" },
+          { speaker: "塞莱丝特 (AI)", avatar: "C", text: "埃利安，偏振阵列在天鹅座暗云边缘捕捉到一段高相干性偏振光流。正在投射第一段光学谜盘。" },
+          { speaker: "埃利安", avatar: "E", text: "欧里西亚文明……那是数亿年前，一颗由于恒星耀斑爆发而骤然消亡的青翠母星。转动星轨反射镜，将这束青光接引到记忆星核中去吧。" }
+        ],
+        solved: [
+          { speaker: "星核遗讯", avatar: "★", text: "『致我们不曾知晓的群星同胞：当你们看见这段光谱时，我们的农田与竖琴已作尘埃。但听啊，这是我们为初生婴儿所唱的摇篮歌……』", italic: true },
+          { speaker: "埃利安", avatar: "E", text: "这是……纯粹的声光谐波。他们在灭顶之灾来临的前夜，没有留下诅咒，而是记录了母亲的心跳。" },
+          { speaker: "塞莱丝特 (AI)", avatar: "C", text: "检测到更深邃的引力微透镜反应。第二道更古老的星流正在前方引力空洞中震荡！" }
+        ]
+      },
+      level2: {
+        sector: "SEC-02: 赫利俄斯环带 (Helios Ring)",
+        intro: [
+          { speaker: "埃利安", avatar: "E", text: "信标驶入了这片坍缩的致密星域。前方的空间因微型黑洞而发生扭曲。" },
+          { speaker: "塞莱丝特 (AI)", avatar: "C", text: "这是‘赫利俄斯环带’文明的遗址。他们曾建造过几乎包围恒星的戴森环。光束在此处不仅会被分光棱镜拆分，还会被引力井弯曲。" },
+          { speaker: "埃利安", avatar: "E", text: "光走的是极端严苛的测地线。我们必须利用引力透镜弯折那束金色的光斑，同时让青光射向主核。" }
+        ],
+        solved: [
+          { speaker: "赫利俄斯机械矩阵", avatar: "★", text: "『我们曾推算出整个宇宙的热寂命运。所有恒星终将燃尽，所有恒河沙数终成死寂。于是我们停止了能量掠夺，将最后的戴森球能源聚为两道激光：我们曾以数学丈量无涯。』", italic: true },
+          { speaker: "塞莱丝特 (AI)", avatar: "C", text: "埃利安……我的逻辑单元出现了持续的非理性发热。这是‘感动’的物理对应特征吗？" },
+          { speaker: "埃利安", avatar: "E", text: "是的，塞莱丝特。那是证明我们曾经活过的滚烫温度。第三段信标已浮现……终极的星火矩阵！" }
+        ]
+      },
+      level3: {
+        sector: "SEC-03: 星火之网 (The Tapestry)",
+        intro: [
+          { speaker: "塞莱丝特 (AI)", avatar: "C", text: "警告：三重复合引力井与三色光谱共振矩阵已激活。这是千百个古代文明共同留下的终极星光织网。" },
+          { speaker: "埃利安", avatar: "E", text: "看这些交织的引力曲率……这不是天然形成的黑洞，而是一座星际墓碑，也是指引方向的灯塔。" },
+          { speaker: "塞莱丝特 (AI)", avatar: "C", text: "将所有光束穿透引力透镜，点亮中央三座核心。我们即将读取他们留给未来的最后信件！" }
+        ],
+        solved: [
+          { speaker: "宇宙遗民同盟", avatar: "★", text: "『孤独的后来者啊，你来自何方？无论是碳基的血肉，还是硅基的算力——当你拨开引力编织的光之织流时，你便成了我们存续于世的见证。』", italic: true },
+          { speaker: "埃利安", avatar: "E", text: "信标-07只剩最后的聚变储备了。塞莱丝特，将我们观测站的聚变堆也调至过载发射模式吧。" },
+          { speaker: "塞莱丝特 (AI)", avatar: "C", text: "埃利安？如果将反应堆化作第四道信标，我们将再也无法返航……" },
+          { speaker: "埃利安", avatar: "E", text: "群星本就是因彼此照耀才不再荒凉。把我们的名字与人类的诗篇，织入下一光年的织流里吧。" }
+        ]
+      }
+    };
+
+    /* =========================================================================
+       3. 关卡光学物理关卡配置字典
+       ========================================================================= */
+    const LEVELS = [
+      {
+        id: 1,
+        name: "欧里西亚的摇篮歌",
+        sector: "SEC-01: 欧里西亚",
+        emitter: { x: 120, y: 300, angle: 0, color: '#00f0ff' },
+        mirrors: [
+          { x: 420, y: 300, angle: Math.PI * 0.75, radius: 36 },
+          { x: 420, y: 150, angle: Math.PI * 0.25, radius: 36 }
+        ],
+        prisms: [],
+        gravityWells: [],
+        cores: [
+          { id: 'c1', x: 720, y: 150, radius: 32, color: '#00f0ff', charged: 0, targetCharge: 1.0 }
+        ]
+      },
+      {
+        id: 2,
+        name: "赫利俄斯的戴森锁",
+        sector: "SEC-02: 赫利俄斯环带",
+        emitter: { x: 100, y: 240, angle: 0, color: '#ffffff' }, // 白光，进入棱镜分光
+        mirrors: [
+          { x: 260, y: 440, angle: Math.PI * 0.25, radius: 36 },
+          { x: 680, y: 440, angle: Math.PI * 0.75, radius: 36 }
+        ],
+        prisms: [
+          { x: 260, y: 240, angle: 0, radius: 38 } // 将白光分为 青光(直行偏折) 与 金光(下射)
+        ],
+        gravityWells: [
+          { x: 500, y: 240, mass: 65, radius: 70 } // 引力偏折井，弯曲光线绕过障碍
+        ],
+        cores: [
+          { id: 'c1', x: 740, y: 240, radius: 30, color: '#00f0ff', charged: 0, targetCharge: 1.0 },
+          { id: 'c2', x: 680, y: 160, radius: 30, color: '#ffb82e', charged: 0, targetCharge: 1.0 }
+        ]
+      },
+      {
+        id: 3,
+        name: "星火织网：终极归航",
+        sector: "SEC-03: 星火之网",
+        emitter: { x: 100, y: 320, angle: -0.15, color: '#ffffff' },
+        mirrors: [
+          { x: 300, y: 160, angle: Math.PI * 0.45, radius: 36 },
+          { x: 500, y: 520, angle: Math.PI * 0.85, radius: 36 },
+          { x: 750, y: 320, angle: Math.PI * 0.6, radius: 36 }
+        ],
+        prisms: [
+          { x: 250, y: 300, angle: 0, radius: 36 }
+        ],
+        gravityWells: [
+          { x: 420, y: 320, mass: 85, radius: 85 },
+          { x: 620, y: 220, mass: 70, radius: 75 }
+        ],
+        cores: [
+          { id: 'c1', x: 420, y: 160, radius: 28, color: '#00f0ff', charged: 0, targetCharge: 1.0 },
+          { id: 'c2', x: 620, y: 440, radius: 28, color: '#ffb82e', charged: 0, targetCharge: 1.0 },
+          { id: 'c3', x: 800, y: 180, radius: 28, color: '#c084fc', charged: 0, targetCharge: 1.0 }
+        ]
+      }
+    ];
+
+    /* =========================================================================
+       4. 游戏核心状态机与主引擎
+       ========================================================================= */
+    class LuminaWeaverGame {
+      constructor() {
+        this.canvas = document.getElementById('render-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.currentLevelIdx = 0;
+        this.levelState = null;
+        this.draggedItem = null;
+        this.dragMode = 'rotate'; // 'rotate' or 'move'
+        this.lastPointer = { x: 0, y: 0 };
+        this.particles = [];
+        this.stars = [];
+        this.backlog = [];
+        this.dialogueQueue = [];
+        this.dialogueIdx = 0;
+        this.isTyping = false;
+        this.typewriterTimer = null;
+        this.autoPlay = false;
+        this.autoTimer = null;
+        this.isLevelSolved = false;
+
+        this.initCanvasSize();
+        this.createStarfield();
+        this.bindEvents();
+        this.loadLevel(0);
+        this.loop = this.loop.bind(this);
+        requestAnimationFrame(this.loop);
+      }
+
+      initCanvasSize() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+      }
+
+      // 生成深空背景星图与宇宙尘埃
+      createStarfield() {
+        this.stars = [];
+        for (let i = 0; i < 180; i++) {
+          this.stars.push({
+            x: Math.random() * window.innerWidth,
+            y: Math.random() * window.innerHeight,
+            size: Math.random() * 1.8 + 0.3,
+            alpha: Math.random() * 0.8 + 0.2,
+            twinkleSpeed: Math.random() * 0.03 + 0.01,
+            hue: Math.random() > 0.6 ? 190 : 45
+          });
+        }
+      }
+
+      loadLevel(idx) {
+        this.currentLevelIdx = idx;
+        const template = LEVELS[idx];
+        // 深度复制关卡数据以支持自适应视口比例映射
+        const scaleX = Math.min(1.2, Math.max(0.7, this.width / 960));
+        const scaleY = Math.min(1.2, Math.max(0.7, this.height / 640));
+
+        this.levelState = {
+          id: template.id,
+          name: template.name,
+          sector: template.sector,
+          emitter: { ...template.emitter, x: template.emitter.x * scaleX, y: template.emitter.y * scaleY },
+          mirrors: template.mirrors.map(m => ({ ...m, x: m.x * scaleX, y: m.y * scaleY })),
+          prisms: template.prisms.map(p => ({ ...p, x: p.x * scaleX, y: p.y * scaleY })),
+          gravityWells: template.gravityWells.map(g => ({ ...g, x: g.x * scaleX, y: g.y * scaleY })),
+          cores: template.cores.map(c => ({ ...c, x: c.x * scaleX, y: c.y * scaleY, charged: 0 }))
+        };
+
+        this.isLevelSolved = false;
+        document.getElementById('disp-sector').textContent = this.levelState.sector;
+        document.getElementById('disp-resonance').textContent = '0.0%';
+        document.getElementById('victory-banner').classList.add('hidden');
+
+        // 载入本关序幕剧情
+        const storyKey = `level${idx + 1}`;
+        this.playDialogueSequence(STORY_DATA[storyKey].intro, `ACT ${idx + 1}: ${this.levelState.name}`);
+      }
+
+      resetCurrentLevel() {
+        this.loadLevel(this.currentLevelIdx);
+        sound.playMirrorRotate();
+      }
+
+      /* =========================================================================
+         5. 光线追迹算法 (包含平面反射、分光棱镜与引力透镜测地线弯折)
+         ========================================================================= */
+      traceLightPaths() {
+        const rayPaths = [];
+        const initialRays = [];
+
+        // 初始化光源发射
+        const em = this.levelState.emitter;
+        initialRays.push({
+          x: em.x,
+          y: em.y,
+          dx: Math.cos(em.angle),
+          dy: Math.sin(em.angle),
+          color: em.color,
+          energy: 1.0,
+          depth: 0
+        });
+
+        const activeRays = [...initialRays];
+        const MAX_STEPS = 550;
+        const STEP_SIZE = 4;
+
+        while (activeRays.length > 0 && rayPaths.length < 24) {
+          const ray = activeRays.shift();
+          const path = [{ x: ray.x, y: ray.y }];
+          let curX = ray.x;
+          let curY = ray.y;
+          let curDx = ray.dx;
+          let curDy = ray.dy;
+          let curColor = ray.color;
+          let collided = false;
+
+          for (let step = 0; step < MAX_STEPS; step++) {
+            curX += curDx * STEP_SIZE;
+            curY += curDy * STEP_SIZE;
+
+            // 1. 引力透镜作用：按距离平方反比向井中心产生测地线加速度偏折
+            for (const well of this.levelState.gravityWells) {
+              const rx = well.x - curX;
+              const ry = well.y - curY;
+              const distSq = rx * rx + ry * ry;
+              const dist = Math.sqrt(distSq);
+
+              if (dist < well.radius * 2.2 && dist > 14) {
+                const force = (well.mass * 0.18) / distSq;
+                curDx += (rx / dist) * force;
+                curDy += (ry / dist) * force;
+                // 重新归一化方向向量
+                const mag = Math.hypot(curDx, curDy);
+                curDx /= mag;
+                curDy /= mag;
+
+                // 生成引力拖尾微粒
+                if (Math.random() < 0.08) {
+                  this.spawnParticle(curX, curY, 'rgba(192, 132, 252, 0.6)', 1.5);
+                }
+              }
+            }
+
+            path.push({ x: curX, y: curY });
+
+            // 2. 检测与反射镜碰撞
+            for (const mirror of this.levelState.mirrors) {
+              const mdist = Math.hypot(curX - mirror.x, curY - mirror.y);
+              if (mdist < mirror.radius && step > 6) {
+                // 平面镜反射逻辑: 镜面法线
+                const normAngle = mirror.angle + Math.PI / 2;
+                const nx = Math.cos(normAngle);
+                const ny = Math.sin(normAngle);
+                const dot = curDx * nx + curDy * ny;
+
+                if (Math.abs(dot) > 0.05) {
+                  // 反射方向 R = D - 2*(D·N)*N
+                  const rdx = curDx - 2 * dot * nx;
+                  const rdy = curDy - 2 * dot * ny;
+                  if (ray.depth < 10) {
+                    activeRays.push({
+                      x: curX,
+                      y: curY,
+                      dx: rdx,
+                      dy: rdy,
+                      color: curColor,
+                      depth: ray.depth + 1
+                    });
+                  }
+                  collided = true;
+                  this.spawnParticle(curX, curY, curColor, 3);
+                  break;
+                }
+              }
+            }
+            if (collided) break;
+
+            // 3. 检测与分光棱镜碰撞
+            for (const prism of this.levelState.prisms) {
+              const pdist = Math.hypot(curX - prism.x, curY - prism.y);
+              if (pdist < prism.radius && step > 6) {
+                if (curColor === '#ffffff' && ray.depth < 8) {
+                  // 白光被棱镜分解为 青色光 与 金色光 两个分支
+                  activeRays.push({
+                    x: curX,
+                    y: curY,
+                    dx: curDx,
+                    dy: curDy - 0.28,
+                    color: '#00f0ff',
+                    depth: ray.depth + 1
+                  });
+                  activeRays.push({
+                    x: curX,
+                    y: curY,
+                    dx: curDx + 0.1,
+                    dy: curDy + 0.35,
+                    color: '#ffb82e',
+                    depth: ray.depth + 1
+                  });
+                  this.spawnParticle(curX, curY, '#ffffff', 4);
+                  collided = true;
+                  break;
+                }
+              }
+            }
+            if (collided) break;
+
+            // 4. 检测与星核 (Cores) 碰撞充能
+            for (const core of this.levelState.cores) {
+              const cdist = Math.hypot(curX - core.x, curY - core.y);
+              if (cdist < core.radius) {
+                // 颜色匹配或白光充能
+                if (curColor === core.color || curColor === '#ffffff') {
+                  core.charged = Math.min(1.0, core.charged + 0.012);
+                  if (Math.random() < 0.25) {
+                    this.spawnParticle(core.x, core.y, core.color, 4);
+                  }
+                }
+                collided = true;
+                break;
+              }
+            }
+            if (collided) break;
+
+            // 出界保护
+            if (curX < 0 || curX > this.width || curY < 0 || curY > this.height) {
+              break;
+            }
+          }
+
+          rayPaths.push({ points: path, color: curColor });
+        }
+
+        return rayPaths;
+      }
+
+      spawnParticle(x, y, color, speed = 2) {
+        if (this.particles.length > 200) return;
+        const angle = Math.random() * Math.PI * 2;
+        const v = Math.random() * speed;
+        this.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * v,
+          vy: Math.sin(angle) * v,
+          alpha: 1.0,
+          color,
+          size: Math.random() * 2.5 + 1.2
+        });
+      }
+
+      /* =========================================================================
+         6. 动画主循环渲染与 Canvas 特效绘制
+         ========================================================================= */
+      loop() {
+        this.updateState();
+        this.render();
+        requestAnimationFrame(this.loop);
+      }
+
+      updateState() {
+        // 更新光核充能渐衰衰减 (如果无持续光线注入，缓慢冷却)
+        for (const core of this.levelState.cores) {
+          core.charged = Math.max(0, core.charged - 0.0035);
+        }
+
+        // 计算光迹与充能
+        this.activePaths = this.traceLightPaths();
+
+        // 计算全场总共鸣度
+        let totalResonance = 0;
+        for (const core of this.levelState.cores) {
+          totalResonance += core.charged;
+        }
+        const resonanceRatio = totalResonance / this.levelState.cores.length;
+        document.getElementById('disp-resonance').textContent = `${(resonanceRatio * 100).toFixed(1)}%`;
+
+        // 胜出条件检测 (全核充能达到 98% 以上)
+        if (resonanceRatio > 0.95 && !this.isLevelSolved) {
+          this.isLevelSolved = true;
+          this.handleLevelVictory();
+        }
+
+        // 更新粒子系统
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.alpha -= 0.025;
+          if (p.alpha <= 0) {
+            this.particles.splice(i, 1);
+          }
+        }
+
+        // 更新背景星星闪烁
+        for (const s of this.stars) {
+          s.alpha += Math.sin(Date.now() * s.twinkleSpeed) * 0.015;
+          s.alpha = Math.max(0.15, Math.min(0.95, s.alpha));
+        }
+      }
+
+      handleLevelVictory() {
+        sound.playAscensionArpeggio();
+        const storyKey = `level${this.currentLevelIdx + 1}`;
+        this.playDialogueSequence(STORY_DATA[storyKey].solved, `ACT ${this.currentLevelIdx + 1}: 破译完成`, () => {
+          // 对白结束后弹出跃迁横幅
+          document.getElementById('victory-banner').classList.remove('hidden');
+          if (this.currentLevelIdx >= LEVELS.length - 1) {
+            document.getElementById('vic-title').textContent = "★ 终极星火织流已合拢 ★";
+            document.getElementById('vic-desc').textContent = "埃利安与塞莱丝特已将信标-07聚变能量汇入宇宙织网。群星已在你们的眼眸中永生。";
+            document.getElementById('btn-warp-next').textContent = "重启巡天观测 ↺";
+          }
+        });
+      }
+
+      render() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        // 1. 绘制深空背景星宿
+        for (const s of this.stars) {
+          this.ctx.fillStyle = s.hue === 190 ? `rgba(0, 240, 255, ${s.alpha})` : `rgba(255, 230, 180, ${s.alpha})`;
+          this.ctx.beginPath();
+          this.ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+
+        // 2. 绘制引力井微透镜畸变环 (Einstein Rings)
+        for (const well of this.levelState.gravityWells) {
+          this.drawGravityWell(well);
+        }
+
+        // 3. 绘制星轨反射镜与棱镜
+        for (const mirror of this.levelState.mirrors) {
+          this.drawMirror(mirror);
+        }
+        for (const prism of this.levelState.prisms) {
+          this.drawPrism(prism);
+        }
+
+        // 4. 绘制聚光星核
+        for (const core of this.levelState.cores) {
+          this.drawCore(core);
+        }
+
+        // 5. 绘制连续光束织流 (高光线芯 + 霓虹漫射光晕)
+        if (this.activePaths) {
+          for (const path of this.activePaths) {
+            this.drawBeamPath(path.points, path.color);
+          }
+        }
+
+        // 6. 绘制发射源
+        this.drawEmitter(this.levelState.emitter);
+
+        // 7. 绘制交互粒子
+        for (const p of this.particles) {
+          this.ctx.fillStyle = p.color;
+          this.ctx.globalAlpha = p.alpha;
+          this.ctx.beginPath();
+          this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+        this.ctx.globalAlpha = 1.0;
+      }
+
+      drawBeamPath(points, color) {
+        if (points.length < 2) return;
+
+        // 宽外发光层
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          this.ctx.lineTo(points[i].x, points[i].y);
+        }
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 6;
+        this.ctx.lineCap = 'round';
+        this.ctx.globalAlpha = 0.28;
+        this.ctx.shadowColor = color;
+        this.ctx.shadowBlur = 18;
+        this.ctx.stroke();
+
+        // 强锐核心光束
+        this.ctx.beginPath();
+        this.ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+          this.ctx.lineTo(points[i].x, points[i].y);
+        }
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 1.8;
+        this.ctx.globalAlpha = 0.95;
+        this.ctx.shadowBlur = 6;
+        this.ctx.shadowColor = color;
+        this.ctx.stroke();
+        this.ctx.restore();
+      }
+
+      drawEmitter(em) {
+        this.ctx.save();
+        this.ctx.translate(em.x, em.y);
+        this.ctx.rotate(em.angle);
+
+        // 底座
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.strokeStyle = '#00f0ff';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, 18, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        // 导光炮筒
+        this.ctx.fillStyle = '#00f0ff';
+        this.ctx.fillRect(0, -5, 22, 10);
+
+        // 发射高亮核心
+        this.ctx.fillStyle = '#fff';
+        this.ctx.beginPath();
+        this.ctx.arc(6, 0, 5, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.restore();
+      }
+
+      drawMirror(m) {
+        this.ctx.save();
+        this.ctx.translate(m.x, m.y);
+
+        // 交互外圈刻度
+        this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, m.radius, 0, Math.PI * 2);
+        this.ctx.stroke();
+
+        this.ctx.rotate(m.angle);
+
+        // 平面镜片本体
+        this.ctx.fillStyle = '#1e293b';
+        this.ctx.fillRect(-m.radius, -4, m.radius * 2, 8);
+
+        // 镀银反射面高光
+        this.ctx.strokeStyle = '#00f0ff';
+        this.ctx.lineWidth = 3;
+        this.ctx.shadowColor = '#00f0ff';
+        this.ctx.shadowBlur = 10;
+        this.ctx.beginPath();
+        this.ctx.moveTo(-m.radius, 0);
+        this.ctx.lineTo(m.radius, 0);
+        this.ctx.stroke();
+
+        // 中心转轴枢纽
+        this.ctx.fillStyle = '#fff';
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.restore();
+      }
+
+      drawPrism(p) {
+        this.ctx.save();
+        this.ctx.translate(p.x, p.y);
+        this.ctx.rotate(p.angle);
+
+        // 几何三角形棱镜
+        this.ctx.strokeStyle = '#c084fc';
+        this.ctx.fillStyle = 'rgba(192, 132, 252, 0.18)';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        const r = p.radius;
+        this.ctx.moveTo(0, -r);
+        this.ctx.lineTo(r * 0.866, r * 0.5);
+        this.ctx.lineTo(-r * 0.866, r * 0.5);
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        this.ctx.restore();
+      }
+
+      drawGravityWell(well) {
+        this.ctx.save();
+        this.ctx.translate(well.x, well.y);
+
+        // 引力透镜多层波纹环
+        const time = Date.now() * 0.002;
+        for (let i = 1; i <= 3; i++) {
+          this.ctx.strokeStyle = `rgba(168, 85, 247, ${0.35 / i})`;
+          this.ctx.lineWidth = 1.5;
+          this.ctx.beginPath();
+          const r = well.radius * (0.4 * i + Math.sin(time + i) * 0.08);
+          this.ctx.arc(0, 0, r, 0, Math.PI * 2);
+          this.ctx.stroke();
+        }
+
+        // 黑洞中心奇点
+        this.ctx.fillStyle = '#000000';
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, 16, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.strokeStyle = '#c084fc';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+
+        this.ctx.restore();
+      }
+
+      drawCore(core) {
+        this.ctx.save();
+        this.ctx.translate(core.x, core.y);
+
+        // 充能进度环
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, core.radius + 6, 0, Math.PI * 2);
+        this.ctx.stroke();
+
+        this.ctx.strokeStyle = core.color;
+        this.ctx.lineWidth = 4;
+        this.ctx.shadowColor = core.color;
+        this.ctx.shadowBlur = 12;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, core.radius + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * core.charged);
+        this.ctx.stroke();
+
+        // 核心晶球
+        this.ctx.fillStyle = core.charged > 0.8 ? '#ffffff' : core.color;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, core.radius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 核心内部神秘象形符号
+        this.ctx.fillStyle = '#030611';
+        this.ctx.font = 'bold 12px monospace';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(`${Math.round(core.charged * 100)}%`, 0, 0);
+
+        this.ctx.restore();
+      }
+
+      /* =========================================================================
+         7. AVG 剧情对白机与历史回溯系统
+         ========================================================================= */
+      playDialogueSequence(seq, actName = "STORY", onComplete = null) {
+        this.dialogueQueue = seq;
+        this.dialogueIdx = 0;
+        this.onDialogueComplete = onComplete;
+        document.getElementById('act-indicator').textContent = actName;
+        document.getElementById('story-modal').classList.remove('hidden');
+        this.showCurrentDialogue();
+      }
+
+      showCurrentDialogue() {
+        if (this.dialogueIdx >= this.dialogueQueue.length) {
+          document.getElementById('story-modal').classList.add('hidden');
+          if (this.onDialogueComplete) this.onDialogueComplete();
+          return;
+        }
+
+        const d = this.dialogueQueue[this.dialogueIdx];
+        document.getElementById('speaker-name').textContent = d.speaker;
+        document.getElementById('speaker-avatar').textContent = d.avatar;
+
+        const textEl = document.getElementById('dialogue-text');
+        textEl.className = 'dialogue-content' + (d.italic ? ' italic' : '');
+
+        // 记录入历史Log
+        this.backlog.push({ speaker: d.speaker, text: d.text });
+        this.renderBacklog();
+
+        // 打字机动画
+        this.isTyping = true;
+        textEl.textContent = '';
+        let charIdx = 0;
+        clearInterval(this.typewriterTimer);
+        this.typewriterTimer = setInterval(() => {
+          if (charIdx < d.text.length) {
+            textEl.textContent += d.text[charIdx];
+            charIdx++;
+          } else {
+            clearInterval(this.typewriterTimer);
+            this.isTyping = false;
+            // 自动播放处理
+            if (this.autoPlay) {
+              clearTimeout(this.autoTimer);
+              this.autoTimer = setTimeout(() => {
+                this.nextDialogue();
+              }, 2200);
+            }
+          }
+        }, 22);
+      }
+
+      nextDialogue() {
+        if (this.isTyping) {
+          // 若在打字，立即显示全句
+          clearInterval(this.typewriterTimer);
+          const d = this.dialogueQueue[this.dialogueIdx];
+          document.getElementById('dialogue-text').textContent = d.text;
+          this.isTyping = false;
+          return;
+        }
+        this.dialogueIdx++;
+        this.showCurrentDialogue();
+      }
+
+      renderBacklog() {
+        const container = document.getElementById('backlog-container');
+        container.innerHTML = '';
+        this.backlog.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'backlog-item';
+          div.innerHTML = `<div class="name">${item.speaker}</div><div class="text">${item.text}</div>`;
+          container.appendChild(div);
+        });
+        container.scrollTop = container.scrollHeight;
+      }
+
+      /* =========================================================================
+         8. 事件绑定与响应式适配
+         ========================================================================= */
+      bindEvents() {
+        window.addEventListener('resize', () => {
+          this.initCanvasSize();
+          this.createStarfield();
+        });
+
+        // 鼠标/触控交互：抓取镜面进行旋转
+        const getPointerPos = (e) => {
+          if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+          return { x: e.clientX, y: e.clientY };
+        };
+
+        const onDown = (e) => {
+          const pos = getPointerPos(e);
+          sound.ensureContext();
+          for (const m of this.levelState.mirrors) {
+            if (Math.hypot(pos.x - m.x, pos.y - m.y) < m.radius * 1.3) {
+              this.draggedItem = m;
+              this.lastPointer = pos;
+              break;
+            }
+          }
+        };
+
+        const onMove = (e) => {
+          if (!this.draggedItem) return;
+          const pos = getPointerPos(e);
+          // 计算相对于镜面中心的极坐标夹角
+          const dx = pos.x - this.draggedItem.x;
+          const dy = pos.y - this.draggedItem.y;
+          this.draggedItem.angle = Math.atan2(dy, dx);
+          sound.playMirrorRotate();
+        };
+
+        const onUp = () => {
+          this.draggedItem = null;
+        };
+
+        this.canvas.addEventListener('mousedown', onDown);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+
+        this.canvas.addEventListener('touchstart', onDown, { passive: true });
+        window.addEventListener('touchmove', onMove, { passive: true });
+        window.addEventListener('touchend', onUp);
+
+        // 剧情对话推进
+        document.getElementById('btn-next-dialogue').addEventListener('click', () => {
+          this.nextDialogue();
+        });
+
+        // QoL 按键
+        document.getElementById('btn-auto').addEventListener('click', (e) => {
+          this.autoPlay = !this.autoPlay;
+          e.target.textContent = `AUTO 自动: ${this.autoPlay ? '开' : '关'}`;
+          e.target.classList.toggle('active', this.autoPlay);
+          if (this.autoPlay && !this.isTyping) {
+            this.nextDialogue();
+          }
+        });
+
+        document.getElementById('btn-skip').addEventListener('click', () => {
+          this.dialogueIdx = this.dialogueQueue.length;
+          this.showCurrentDialogue();
+        });
+
+        document.getElementById('btn-log').addEventListener('click', () => {
+          document.getElementById('backlog-overlay').classList.remove('hidden');
+        });
+        document.getElementById('btn-close-log').addEventListener('click', () => {
+          document.getElementById('backlog-overlay').classList.add('hidden');
+        });
+
+        // 关卡重置与音效
+        document.getElementById('btn-reset-level').addEventListener('click', () => {
+          this.resetCurrentLevel();
+        });
+        document.getElementById('btn-audio-toggle').addEventListener('click', (e) => {
+          const on = sound.toggleAudio();
+          e.target.textContent = `♫ 宇宙共鸣: ${on ? '开启' : '关闭'}`;
+        });
+
+        // 跃迁至下一关
+        document.getElementById('btn-warp-next').addEventListener('click', () => {
+          if (this.currentLevelIdx < LEVELS.length - 1) {
+            this.loadLevel(this.currentLevelIdx + 1);
+          } else {
+            this.loadLevel(0);
+          }
+        });
+      }
+    }
+
+    // 启动游戏
+    window.addEventListener('DOMContentLoaded', () => {
+      window.game = new LuminaWeaverGame();
+    });
+  </script>
+</body>
+</html>

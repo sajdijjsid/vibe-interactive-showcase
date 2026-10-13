@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>微观地球：造物主的遗落培养皿 (Terra Micro: Genesis Vessel)</title>
+  <style>
+    :root {
+      --bg-void: #02050b;
+      --dish-rim: #2d3e50;
+      --dish-brass: #d4af37;
+      --biolum-cyan: #00f5d4;
+      --biolum-emerald: #10b981;
+      --biolum-amber: #f59e0b;
+      --biolum-magenta: #f43f5e;
+      --panel-glass: rgba(8, 16, 28, 0.88);
+      --panel-border: rgba(0, 245, 212, 0.25);
+      --text-bright: #e6f6ff;
+      --text-dim: #718096;
+      --font-mono: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+      --font-serif: 'Noto Serif SC', 'Songti SC', 'STSong', Georgia, serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-bright);
+      font-family: var(--font-sans);
+    }
+
+    /* 全局背景画板 (深空与微观培养皿) */
+    #stage-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+    }
+
+    /* 显微镜/观测窗暗角与光斑 */
+    .lens-vignette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, transparent 45%, rgba(1, 3, 7, 0.88) 95%),
+                  radial-gradient(ellipse at 50% 10%, rgba(0, 245, 212, 0.05), transparent 60%);
+    }
+
+    /* 顶层 UI 交互框架 */
+    #ui-root {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(10px, 2vw, 20px);
+      pointer-events: none;
+    }
+
+    /* 顶部穹顶观测台 HUD */
+    header.genesis-hud {
+      pointer-events: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel-glass);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 10px 20px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+    }
+
+    .vessel-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .orb-pulse {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--biolum-cyan) 0%, transparent 75%);
+      border: 1.5px solid var(--biolum-cyan);
+      box-shadow: 0 0 15px rgba(0, 245, 212, 0.5);
+      animation: breathe 3.6s infinite ease-in-out;
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.15); opacity: 1; }
+    }
+
+    .vessel-title h1 {
+      font-size: clamp(14px, 1.8vw, 18px);
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #fff;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(0, 245, 212, 0.4);
+    }
+    .vessel-title p {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .epoch-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(0, 245, 212, 0.08);
+      border: 1px solid var(--panel-border);
+      padding: 4px 16px;
+      border-radius: 6px;
+    }
+    .epoch-badge .label {
+      font-size: 10px;
+      color: var(--biolum-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-family: var(--font-mono);
+    }
+    .epoch-badge .val {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .header-ctrls {
+      display: flex;
+      gap: 10px;
+    }
+    .h-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
+      color: var(--text-bright);
+      padding: 6px 14px;
+      border-radius: 5px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      transition: all 0.2s;
+    }
+    .h-btn:hover {
+      background: rgba(0, 245, 212, 0.2);
+      border-color: var(--biolum-cyan);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(0, 245, 212, 0.4);
+    }
+
+    /* 中部左右悬浮面板 (左：生态动力学参数沙盒；右：生物多样性雷达) */
+    .middle-zone {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      flex: 1;
+      margin: 10px 0;
+    }
+
+    /* 左侧：微生态气候与基因调控台 */
+    .terra-panel {
+      pointer-events: auto;
+      background: var(--panel-glass);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 16px;
+      width: clamp(230px, 22vw, 290px);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .panel-hdr {
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--biolum-cyan);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .slider-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .slider-info span.value {
+      color: var(--text-bright);
+      font-family: var(--font-mono);
+      font-weight: bold;
+    }
+    .terra-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      cursor: pointer;
+    }
+    .terra-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--biolum-cyan);
+      box-shadow: 0 0 8px var(--biolum-cyan);
+      cursor: pointer;
+    }
+
+    /* 四大神性介入术 */
+    .intervention-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .god-btn {
+      background: rgba(0, 245, 212, 0.08);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 8px 6px;
+      color: var(--text-bright);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+    .god-btn:hover {
+      background: rgba(0, 245, 212, 0.24);
+      border-color: var(--biolum-cyan);
+      box-shadow: 0 0 12px rgba(0, 245, 212, 0.35);
+      transform: translateY(-1px);
+    }
+    .god-btn span.icon {
+      font-size: 16px;
+    }
+
+    /* 右侧：生命多样性与进化图鉴 */
+    .life-panel {
+      pointer-events: auto;
+      background: var(--panel-glass);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 16px;
+      width: clamp(230px, 22vw, 290px);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .metric-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .metric-item-hdr {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    /* 底部剧情 AVG 哲学对话与抉择系统 */
+    #dialogue-modal {
+      pointer-events: auto;
+      align-self: center;
+      width: 100%;
+      max-width: 880px;
+      background: linear-gradient(180deg, rgba(8, 16, 28, 0.95) 0%, rgba(3, 7, 14, 0.98) 100%);
+      border: 1px solid rgba(0, 245, 212, 0.35);
+      border-radius: 12px;
+      padding: 16px 24px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9), 0 0 25px rgba(0, 245, 212, 0.12);
+      backdrop-filter: blur(18px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      margin-bottom: 6px;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    #dialogue-modal.hidden {
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+    }
+
+    .diag-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 6px;
+    }
+    .diag-speaker {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .diag-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--biolum-cyan);
+      color: #02050b;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      box-shadow: 0 0 10px var(--biolum-cyan);
+    }
+    .diag-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--biolum-cyan);
+    }
+    .diag-philosophy {
+      font-family: var(--font-serif);
+      font-size: 12px;
+      color: var(--dish-brass);
+    }
+
+    .diag-text {
+      font-size: clamp(14px, 1.6vw, 16px);
+      line-height: 1.8;
+      color: #f1f5f9;
+      min-height: 56px;
+      letter-spacing: 0.5px;
+      font-family: var(--font-serif);
+    }
+
+    /* 哲学抉择分支按钮容器 */
+    .choices-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .choice-btn {
+      background: rgba(0, 245, 212, 0.08);
+      border: 1px solid rgba(0, 245, 212, 0.3);
+      color: #e2e8f0;
+      padding: 10px 16px;
+      border-radius: 6px;
+      text-align: left;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.2s;
+    }
+    .choice-btn:hover {
+      background: rgba(0, 245, 212, 0.25);
+      border-color: var(--biolum-cyan);
+      color: #fff;
+      transform: translateX(4px);
+      box-shadow: 0 0 15px rgba(0, 245, 212, 0.3);
+    }
+
+    .diag-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .diag-qol {
+      display: flex;
+      gap: 8px;
+    }
+    .q-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--text-dim);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      transition: all 0.2s;
+    }
+    .q-btn:hover, .q-btn.active {
+      border-color: var(--biolum-cyan);
+      color: var(--biolum-cyan);
+      background: rgba(0, 245, 212, 0.1);
+    }
+    .btn-advance {
+      background: linear-gradient(90deg, rgba(0, 245, 212, 0.25), rgba(0, 245, 212, 0.5));
+      border: 1px solid var(--biolum-cyan);
+      color: #fff;
+      padding: 6px 18px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 14px rgba(0, 245, 212, 0.3);
+      transition: transform 0.15s;
+    }
+    .btn-advance:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 22px var(--biolum-cyan);
+    }
+
+    /* 编年史 LOG 浮层 */
+    #chronicle-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(2, 5, 12, 0.94);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      padding: clamp(20px, 4vw, 50px);
+      backdrop-filter: blur(20px);
+    }
+    #chronicle-modal.hidden {
+      display: none;
+    }
+    .chronicle-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .chronicle-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--biolum-cyan);
+      letter-spacing: 2px;
+    }
+    .chronicle-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-right: 12px;
+    }
+    .chronicle-card {
+      background: rgba(10, 22, 40, 0.55);
+      border-left: 3px solid var(--biolum-cyan);
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+    }
+    .chronicle-card .spk {
+      font-size: 12px;
+      color: var(--biolum-cyan);
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .chronicle-card .cnt {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #e2f1ff;
+      font-family: var(--font-serif);
+    }
+
+    /* 纪元终局终章礼赞大卡 */
+    #epilogue-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 40;
+      background: radial-gradient(circle, rgba(12, 28, 48, 0.96) 0%, rgba(2, 6, 14, 0.98) 100%);
+      border: 2px solid var(--dish-brass);
+      border-radius: 14px;
+      padding: 35px 50px;
+      text-align: center;
+      box-shadow: 0 0 70px rgba(212, 175, 55, 0.4), inset 0 0 30px rgba(212, 175, 55, 0.2);
+      backdrop-filter: blur(18px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      pointer-events: auto;
+    }
+    #epilogue-overlay.hidden {
+      display: none;
+    }
+    .epilogue-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--dish-brass);
+      font-family: var(--font-serif);
+    }
+    .epilogue-text {
+      font-size: 15px;
+      color: #e2e8f0;
+      max-width: 520px;
+      line-height: 1.8;
+      font-family: var(--font-serif);
+    }
+    .epilogue-restart {
+      background: linear-gradient(90deg, #d4af37, #f59e0b);
+      border: none;
+      color: #02050b;
+      font-weight: bold;
+      padding: 10px 30px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(212, 175, 55, 0.6);
+      transition: transform 0.2s;
+    }
+    .epilogue-restart:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <!-- 培养皿流体物理与微观生命画板 -->
+  <canvas id="stage-canvas"></canvas>
+  <div class="lens-vignette"></div>
+
+  <!-- 主 UI 交互控制系统 -->
+  <div id="ui-root">
+    <!-- 顶部状态栏 -->
+    <header class="genesis-hud">
+      <div class="vessel-title">
+        <div class="orb-pulse"></div>
+        <div>
+          <h1>微观地球：造物主的遗落培养皿</h1>
+          <p>GENESIS VESSEL // THE LONELY DEMIURGE</p>
+        </div>
+      </div>
+
+      <div class="epoch-badge">
+        <span class="label">当前演化纪元</span>
+        <span class="val" id="disp-epoch-name">始生代·原初之汤</span>
+      </div>
+
+      <div class="header-ctrls">
+        <button class="h-btn" id="btn-reseed">↺ 净化基质</button>
+        <button class="h-btn" id="btn-sound">♫ 神性心跳: 开启</button>
+      </div>
+    </header>
+
+    <!-- 中部悬浮面板：左生态参数，右物种多样性 -->
+    <div class="middle-zone">
+      <!-- 生态动力学调控 -->
+      <aside class="terra-panel">
+        <div class="panel-hdr">
+          <span>培养基环境调控</span>
+          <span style="font-family: var(--font-mono);">TERRA-01</span>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-info">
+            <span>基质温度 (Temperature)</span>
+            <span class="value" id="val-temp">65 °C</span>
+          </div>
+          <input type="range" min="-30" max="100" value="65" class="terra-slider" id="slider-temp">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-info">
+            <span>水热湿度 (Moisture)</span>
+            <span class="value" id="val-moisture">80 %</span>
+          </div>
+          <input type="range" min="0" max="100" value="80" class="terra-slider" id="slider-moisture">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-info">
+            <span>有机氨基酸浓度 (Nutrients)</span>
+            <span class="value" id="val-nutrients">70 %</span>
+          </div>
+          <input type="range" min="0" max="100" value="70" class="terra-slider" id="slider-nutrients">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-info">
+            <span>宇宙催化通量 (Cosmic Flux)</span>
+            <span class="value" id="val-flux">45 %</span>
+          </div>
+          <input type="range" min="0" max="100" value="45" class="terra-slider" id="slider-flux">
+        </div>
+
+        <div class="panel-hdr" style="margin-top: 4px;">
+          <span>神性干预 (Divine Acts)</span>
+        </div>
+        <div class="intervention-grid">
+          <button class="god-btn" id="act-lightning">
+            <span class="icon">⚡</span>
+            <span>原初雷电</span>
+          </button>
+          <button class="god-btn" id="act-rain">
+            <span class="icon">🌧️</span>
+            <span>甘霖净化</span>
+          </button>
+          <button class="god-btn" id="act-vent">
+            <span class="icon">🌋</span>
+            <span>热泉涌流</span>
+          </button>
+          <button class="god-btn" id="act-logos">
+            <span class="icon">👁️</span>
+            <span>神念启智</span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- 生态指标监控 -->
+      <aside class="life-panel">
+        <div class="panel-hdr">
+          <span>生命物候矩阵</span>
+          <span style="font-family: var(--font-mono);" id="disp-bios-count">ENTITIES: 120</span>
+        </div>
+
+        <div class="metric-list">
+          <div class="metric-item">
+            <div class="metric-item-hdr">
+              <span>有机活力指数 (Biomass)</span>
+              <span id="metric-biomass">72%</span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" id="bar-biomass" style="width: 72%; background: var(--biolum-cyan);"></div>
+            </div>
+          </div>
+
+          <div class="metric-item">
+            <div class="metric-item-hdr">
+              <span>大气氧气丰度 (Atmosphere O₂)</span>
+              <span id="metric-o2">12%</span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" id="bar-o2" style="width: 12%; background: var(--biolum-emerald);"></div>
+            </div>
+          </div>
+
+          <div class="metric-item">
+            <div class="metric-item-hdr">
+              <span>神经突触网络 (Neural Mesh)</span>
+              <span id="metric-neural">5%</span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" id="bar-neural" style="width: 5%; background: var(--biolum-magenta);"></div>
+            </div>
+          </div>
+
+          <div class="metric-item">
+            <div class="metric-item-hdr">
+              <span>纪元突破充能 (Evolution Progress)</span>
+              <span id="metric-leap">24%</span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" id="bar-leap" style="width: 24%; background: var(--dish-brass);"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size: 11px; color: var(--text-dim); line-height: 1.5; font-family: var(--font-serif); margin-top: 4px;">
+          “调控参数至宜居黄金带，点击【神念启智】将打破稳态，跨越时代之门。”
+        </div>
+      </aside>
+    </div>
+
+    <!-- 底部 AVG 哲学对话与文明叩问 -->
+    <div id="dialogue-modal">
+      <div class="diag-meta">
+        <div class="diag-speaker">
+          <div class="diag-avatar" id="diag-avatar">Ω</div>
+          <span class="diag-name" id="diag-name">造物者的低语</span>
+        </div>
+        <div class="diag-philosophy" id="diag-epoch-step">第一问：始生原汤</div>
+      </div>
+
+      <div class="diag-text" id="diag-text">
+        你静默地俯瞰着这方高纯度石英玻璃。在无尽冰冷的终末宇宙深处，唯有这一汪原初之水仍在沸腾。
+      </div>
+
+      <!-- 分支抉择区域 (当存在哲学分歧时动态展示) -->
+      <div class="choices-box" id="choices-box" style="display: none;"></div>
+
+      <div class="diag-footer">
+        <div class="diag-qol">
+          <button class="q-btn" id="btn-chronicle">编年史 LOG</button>
+          <button class="q-btn" id="btn-diag-auto">AUTO 自动</button>
+          <button class="q-btn" id="btn-diag-skip">SKIP 快进</button>
+        </div>
+        <button class="btn-advance" id="btn-diag-advance">继续凝视 ❯</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编年史 LOG 浮层 -->
+  <div id="chronicle-modal" class="hidden">
+    <div class="chronicle-hdr">
+      <div class="chronicle-title">演化编年史 // 哲学叩问卷宗 (GENESIS ARCHIVES)</div>
+      <button class="h-btn" id="btn-close-chronicle">✕ 关闭</button>
+    </div>
+    <div class="chronicle-list" id="chronicle-container"></div>
+  </div>
+
+  <!-- 终极结局浮层 -->
+  <div id="epilogue-overlay" class="hidden">
+    <div class="epilogue-title" id="epi-title">★ 终章：破壁星火 ★</div>
+    <div class="epilogue-text" id="epi-text">你击碎了庇护他们亿万载的石英培养皿。宇宙刺骨的真空吞噬了温室，但第一代星舰文明在废墟中扬帆，航向无垠星河。</div>
+    <button class="epilogue-restart" id="btn-restart-all">重燃原初之火 ↺</button>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. 纯程序化 Web Audio 深海低频心跳与神圣天籁声景
+       ========================================================================= */
+    class TerraAudio {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.heartbeatTimer = null;
+        this.init();
+      }
+
+      init() {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        this.ctx = new AudioContext();
+        this.startHeartbeatLoop();
+      }
+
+      ensure() {
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      // 40Hz 远古母体低频心跳脉冲 (Sub-bass Heartbeat)
+      startHeartbeatLoop() {
+        if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = setInterval(() => {
+          if (!this.enabled || !this.ctx) return;
+          this.playPulse(42, 0.15, 0.4);
+          setTimeout(() => {
+            if (this.enabled && this.ctx) this.playPulse(38, 0.1, 0.35);
+          }, 320);
+        }, 2800);
+      }
+
+      playPulse(freq, gainVal, dur) {
+        try {
+          const now = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const filter = this.ctx.createBiquadFilter();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.exponentialRampToValueAtTime(28, now + dur);
+
+          filter.type = 'lowpass';
+          filter.frequency.value = 110;
+
+          gain.gain.setValueAtTime(gainVal, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + dur);
+        } catch (e) {}
+      }
+
+      // 微生物出芽/泡泡破裂音 (Resonant Bubble Pop)
+      playBubblePop() {
+        if (!this.enabled || !this.ctx) return;
+        this.ensure();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        const baseF = 300 + Math.random() * 450;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseF, now);
+        osc.frequency.exponentialRampToValueAtTime(baseF * 1.8, now + 0.08);
+
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+
+      // 纪元突破天籁合唱音 (Ascension Harmonic)
+      playAscensionChime() {
+        if (!this.enabled || !this.ctx) return;
+        this.ensure();
+        const chord = [220, 277.18, 329.63, 440, 554.37, 659.25]; // A Major 圣咏
+        chord.forEach((freq, idx) => {
+          setTimeout(() => {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 2.0);
+          }, idx * 120);
+        });
+      }
+
+      toggle() {
+        this.enabled = !this.enabled;
+        return this.enabled;
+      }
+    }
+
+    const sound = new TerraAudio();
+
+    /* =========================================================================
+       2. 四大纪元剧情脚本与哲学叩问数据库
+       ========================================================================= */
+    const EPOCH_STORIES = [
+      {
+        id: 0,
+        epochName: "始生代·原初之汤 (Hadean: Primordial Soup)",
+        ideal: { temp: [55, 80], moisture: [65, 95], nutrients: [50, 90] },
+        dialogue: [
+          { speaker: "造物者的低语", avatar: "Ω", text: "你从虚空的漫长沉睡中睁开神圣之眼。眼前是一方石英圆皿，孤悬在寂灭的冷区。" },
+          { speaker: "微观意识", avatar: "✦", text: "『热泉喷薄……富集分子在翻滚……神明啊，为何要在黑暗中赋予我们自我复制的本能？』" },
+          { speaker: "造物者的低语", avatar: "Ω", text: "调整基质温度与湿度，调控出最适合核酸聚合的温床，并赐予他们第一道始源雷电。" }
+        ],
+        leapQuestion: {
+          prompt: "当最初的有机长链首次成功分裂为两个相同的生命体时，微观意识发出了第一道叩问：",
+          choices: [
+            { text: "“复制自身即是抗拒虚无的唯一解。生生不息，去填满这方皿吧。”", bonus: "proliferation" },
+            { text: "“每一次复制皆是错误的累积。在变异的裂隙中，寻找超越平凡的可能。”", bonus: "mutation" }
+          ]
+        }
+      },
+      {
+        id: 1,
+        epochName: "元古代·翡翠潮汐 (Proterozoic: The Great Oxidation)",
+        ideal: { temp: [20, 45], moisture: [50, 85], nutrients: [40, 75] },
+        dialogue: [
+          { speaker: "造物者的低语", avatar: "Ω", text: "蓝细菌在浅海漫延，整片培养基泛起翡翠色的光辉。它们学会了吞吐光芒，呼出烈性氧化物。" },
+          { speaker: "厌氧遗族", avatar: "✦", text: "『神啊！天降毒霭！我们同胞的细胞壁在氧气中崩解熔化！为何繁衍的代价是同族相残？』" },
+          { speaker: "造物者的低语", avatar: "Ω", text: "这是大氧化事件——无可避免的创生之劫。毁灭与共生将锻造出线粒体与真核生命的奇迹。" }
+        ],
+        leapQuestion: {
+          prompt: "面对厌氧生物的哀鸣与好氧新星的狂欢，造物主做出抉择：",
+          choices: [
+            { text: "“降下甘霖中和氧化物，为古老的厌氧先祖在深海海沟保留庇护所。”", bonus: "diversity" },
+            { text: "“推动狂暴氧化，以绝决之火淬炼高能多细胞协同体！”", bonus: "acceleration" }
+          ]
+        }
+      },
+      {
+        id: 2,
+        epochName: "显生代·苍翠陆标 (Phanerozoic: The Emerald Frontier)",
+        ideal: { temp: [15, 30], moisture: [40, 70], nutrients: [30, 65] },
+        dialogue: [
+          { speaker: "造物者的低语", avatar: "Ω", text: "寒武纪生命大爆发。蕨类蔓延上石英皿内壁，三叶虫与两栖脊椎生物踏上了潮湿的陆地。" },
+          { speaker: "初生脊索种群", avatar: "✦", text: "『我们在沙滩上被烈日灼烧，神经节在抽搐……造物主，这就是“痛苦”吗？为何要在欢愉中夹杂折磨？』" },
+          { speaker: "造物者的低语", avatar: "Ω", text: "没有痛觉，便没有对死亡的畏惧；没有对死亡的畏惧，便无法催生求存的智慧。" }
+        ],
+        leapQuestion: {
+          prompt: "陆地上的两栖生物仰望苍穹，向造物主祈求更长久的寿命与安逸：",
+          choices: [
+            { text: "“赐予它们安逸与漫长的甲壳，让它们在静止中享受亿年宁静。”", bonus: "tranquility" },
+            { text: "“赐予它们脆弱易逝的血肉与剧烈的心跳，倒逼神经突触疯狂进化！”", bonus: "sapience" }
+          ]
+        }
+      },
+      {
+        id: 3,
+        epochName: "灵生代·燧石星穹 (Noocene: The Spark of Sophia)",
+        ideal: { temp: [18, 28], moisture: [45, 60], nutrients: [30, 50] },
+        dialogue: [
+          { speaker: "造物者的低语", avatar: "Ω", text: "直立行走的智慧生命在培养基中央点燃了第一簇篝火。他们在玻璃内壁涂抹岩画，画着那只凝视他们的神圣巨眼。" },
+          { speaker: "智者祭司", avatar: "✦", text: "『天穹是透明的坚冰……在天穹之外，我们看见了冰冷死寂的群星与巨神！神啊，我们是被饲育的蛊虫，还是你孤独中的倒影？』" },
+          { speaker: "造物者的低语", avatar: "Ω", text: "他们已经触碰到了温室的边界。演化的终章已至，神明必须决定这方培养皿的终极宿命。" }
+        ],
+        leapQuestion: {
+          prompt: "面对智慧文明穿透玻璃的凝视，你的神性指尖将如何落下？",
+          choices: [
+            { text: "【击碎培养皿】打破玻璃温室。虽直面严酷深空，但真理属于无畏的破茧者！", bonus: "ending_break" },
+            { text: "【维系永恒温室】加固玻璃穹顶。为他们留下永远春暖花开、无忧无虑的伊甸园。", bonus: "ending_cage" },
+            { text: "【神性合一】化作微光融入他们的神经网，神明消逝，他们即是新的造物主。", bonus: "ending_merge" }
+          ]
+        }
+      }
+    ];
+
+    /* =========================================================================
+       3. 核心实体粒子系统 (微观单细胞 / 藻类 / 浮游虫 / 智慧火光)
+       ========================================================================= */
+    class MicrobeEntity {
+      constructor(cx, cy, maxR, epoch = 0) {
+        this.cx = cx;
+        this.cy = cy;
+        this.maxR = maxR;
+        this.angle = Math.random() * Math.PI * 2;
+        this.dist = Math.random() * (maxR * 0.85);
+        this.x = cx + Math.cos(this.angle) * this.dist;
+        this.y = cy + Math.sin(this.angle) * this.dist;
+
+        this.vx = (Math.random() - 0.5) * 0.8;
+        this.vy = (Math.random() - 0.5) * 0.8;
+        this.size = Math.random() * 4 + 3;
+        this.epoch = epoch;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.energy = Math.random() * 0.5 + 0.5;
+
+        // 根据纪元赋予不同形态类型
+        this.type = epoch; // 0: 原核球菌, 1: 丝状蓝藻, 2: 脊索三叶虫, 3: 灵能光子
+      }
+
+      update(env, width, height, cx, cy, dishR) {
+        this.pulsePhase += 0.05;
+
+        // 布朗运动与流体洋流拖曳
+        this.vx += (Math.random() - 0.5) * 0.25;
+        this.vy += (Math.random() - 0.5) * 0.25;
+
+        // 洋流环流效应 (逆时针轻微旋涡)
+        const dx = this.x - cx;
+        const dy = this.y - cy;
+        const d = Math.hypot(dx, dy);
+        const swirlAngle = Math.atan2(dy, dx) + Math.PI / 2;
+        this.vx += Math.cos(swirlAngle) * 0.08 * (d / dishR);
+        this.vy += Math.sin(swirlAngle) * 0.08 * (d / dishR);
+
+        // 速度阻尼
+        this.vx *= 0.94;
+        this.vy *= 0.94;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // 培养皿边界弹性阻挡
+        if (d > dishR * 0.9) {
+          const pushBackAngle = Math.atan2(dy, dx);
+          this.x = cx + Math.cos(pushBackAngle) * dishR * 0.89;
+          this.y = cy + Math.sin(pushBackAngle) * dishR * 0.89;
+          this.vx = -this.vx * 0.5;
+          this.vy = -this.vy * 0.5;
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        const pulseScale = 1 + Math.sin(this.pulsePhase) * 0.18;
+
+        if (this.epoch === 0) {
+          // 始生代：原初单细胞与大分子团 (青绿发光泡泡)
+          ctx.fillStyle = 'rgba(0, 245, 212, 0.65)';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size * pulseScale, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size * 0.4, 0, Math.PI * 2);
+          ctx.stroke();
+
+        } else if (this.epoch === 1) {
+          // 元古代：丝状蓝细菌与带鞭毛的多细胞体
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(-this.size * 1.5, 0);
+          ctx.quadraticCurveTo(0, Math.sin(this.pulsePhase) * 6, this.size * 1.5, 0);
+          ctx.stroke();
+
+          ctx.fillStyle = '#10b981';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size * 0.8, 0, Math.PI * 2);
+          ctx.fill();
+
+        } else if (this.epoch === 2) {
+          // 显生代：三叶虫与两栖多足微光体
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.85)';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, this.size * 1.6, this.size * 0.9, Math.atan2(this.vy, this.vx), 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = '#fef3c7';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+        } else {
+          // 灵生代：燧石火光与智慧灵能晶体
+          ctx.fillStyle = '#f43f5e';
+          ctx.shadowColor = '#f43f5e';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size * 1.2 * pulseScale, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    /* =========================================================================
+       4. 游戏全生命周期主控制器
+       ========================================================================= */
+    class TerraMicroGame {
+      constructor() {
+        this.canvas = document.getElementById('stage-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.currentEpoch = 0;
+        this.entities = [];
+        this.stars = [];
+        this.chronicle = [];
+
+        // 环境参数状态机
+        this.env = {
+          temp: 65,      // -30 ~ 100
+          moisture: 80,  // 0 ~ 100
+          nutrients: 70, // 0 ~ 100
+          flux: 45       // 0 ~ 100
+        };
+
+        // 生态指标
+        this.metrics = {
+          biomass: 72,
+          o2: 12,
+          neural: 5,
+          leapProgress: 25
+        };
+
+        // AVG 对白状态机
+        this.dialogueQueue = [];
+        this.dialogueIdx = 0;
+        this.isTyping = false;
+        this.typeTimer = null;
+        this.autoPlay = false;
+
+        this.initSize();
+        this.initStars();
+        this.seedEntities(120);
+        this.bindEvents();
+        this.startEpoch(0);
+
+        this.loop = this.loop.bind(this);
+        requestAnimationFrame(this.loop);
+      }
+
+      initSize() {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        this.dishCx = this.width / 2;
+        this.dishCy = this.height / 2;
+        this.dishR = Math.min(this.width, this.height) * 0.38;
+      }
+
+      initStars() {
+        this.stars = [];
+        for (let i = 0; i < 150; i++) {
+          this.stars.push({
+            x: Math.random() * window.innerWidth,
+            y: Math.random() * window.innerHeight,
+            r: Math.random() * 1.4 + 0.3,
+            a: Math.random() * 0.7 + 0.2
+          });
+        }
+      }
+
+      seedEntities(count) {
+        this.entities = [];
+        for (let i = 0; i < count; i++) {
+          this.entities.push(new MicrobeEntity(this.dishCx, this.dishCy, this.dishR, this.currentEpoch));
+        }
+      }
+
+      startEpoch(epochIdx) {
+        this.currentEpoch = epochIdx;
+        const data = EPOCH_STORIES[epochIdx];
+        document.getElementById('disp-epoch-name').textContent = data.epochName;
+
+        // 根据新纪元刷新部分实体的外观形态
+        this.entities.forEach(e => {
+          e.epoch = epochIdx;
+        });
+
+        // 播放本纪元故事剧本
+        this.playDialogueSequence(data.dialogue, `纪元 ${epochIdx + 1}: ${data.epochName}`);
+      }
+
+      /* =========================================================================
+         5. AVG 剧情对白、哲学抉择与编年史记录
+         ========================================================================= */
+      playDialogueSequence(seq, stepTitle) {
+        this.dialogueQueue = seq;
+        this.dialogueIdx = 0;
+        document.getElementById('diag-epoch-step').textContent = stepTitle;
+        document.getElementById('dialogue-modal').classList.remove('hidden');
+        document.getElementById('choices-box').style.display = 'none';
+        document.getElementById('btn-diag-advance').style.display = 'inline-flex';
+        this.showDialogue();
+      }
+
+      showDialogue() {
+        if (this.dialogueIdx >= this.dialogueQueue.length) {
+          // 对白结束后，若本纪元有抉择提示且未达成飞跃，先保留面板
+          return;
+        }
+
+        const item = this.dialogueQueue[this.dialogueIdx];
+        document.getElementById('diag-name').textContent = item.speaker;
+        document.getElementById('diag-avatar').textContent = item.avatar;
+
+        this.chronicle.push({ speaker: item.speaker, text: item.text });
+        this.updateChronicleUI();
+
+        const textEl = document.getElementById('diag-text');
+        textEl.textContent = '';
+        this.isTyping = true;
+        let cIdx = 0;
+        clearInterval(this.typeTimer);
+        this.typeTimer = setInterval(() => {
+          if (cIdx < item.text.length) {
+            textEl.textContent += item.text[cIdx];
+            cIdx++;
+          } else {
+            clearInterval(this.typeTimer);
+            this.isTyping = false;
+            if (this.autoPlay) {
+              setTimeout(() => this.nextDialogue(), 2000);
+            }
+          }
+        }, 24);
+      }
+
+      nextDialogue() {
+        if (this.isTyping) {
+          clearInterval(this.typeTimer);
+          const item = this.dialogueQueue[this.dialogueIdx];
+          document.getElementById('diag-text').textContent = item.text;
+          this.isTyping = false;
+          return;
+        }
+
+        this.dialogueIdx++;
+        if (this.dialogueIdx < this.dialogueQueue.length) {
+          this.showDialogue();
+        } else {
+          // 当前序列结束，隐藏对白框进入自由调控期
+          document.getElementById('dialogue-modal').classList.add('hidden');
+        }
+      }
+
+      showLeapChoices() {
+        const data = EPOCH_STORIES[this.currentEpoch];
+        if (!data.leapQuestion) return;
+
+        document.getElementById('dialogue-modal').classList.remove('hidden');
+        document.getElementById('diag-name').textContent = "演化飞跃之门";
+        document.getElementById('diag-avatar').textContent = "⚡";
+        document.getElementById('diag-text').textContent = data.leapQuestion.prompt;
+        document.getElementById('btn-diag-advance').style.display = 'none';
+
+        const choiceBox = document.getElementById('choices-box');
+        choiceBox.innerHTML = '';
+        choiceBox.style.display = 'flex';
+
+        data.leapQuestion.choices.forEach(ch => {
+          const btn = document.createElement('button');
+          btn.className = 'choice-btn';
+          btn.textContent = ch.text;
+          btn.addEventListener('click', () => {
+            this.resolveLeapChoice(ch);
+          });
+          choiceBox.appendChild(btn);
+        });
+      }
+
+      resolveLeapChoice(choice) {
+        sound.playAscensionChime();
+        this.chronicle.push({ speaker: "造物主的神性圣裁", text: choice.text });
+        this.updateChronicleUI();
+
+        document.getElementById('choices-box').style.display = 'none';
+        document.getElementById('dialogue-modal').classList.add('hidden');
+
+        // 检测是否触发结局
+        if (choice.bonus === 'ending_break') {
+          this.showEnding(
+            "★ 终章：破壁星火 (THE SHATTERED CRADLE) ★",
+            "你击碎了庇护他们亿万载的石英培养皿。宇宙刺骨的真空吞噬了温室，但第一代星舰文明在废墟中扬帆，航向无垠深空。生命终于获得了真正对抗熵增的自由。"
+          );
+          return;
+        } else if (choice.bonus === 'ending_cage') {
+          this.showEnding(
+            "★ 终章：永恒温室 (THE GOLDEN CAGE) ★",
+            "你加固了培养皿的石英穹顶与温控网络。他们将在永远温暖安宁的伊甸园中老去。这里没有星际战争，没有冷酷真空，但群星在他们的眼中永远只是一幅无法触及的画。"
+          );
+          return;
+        } else if (choice.bonus === 'ending_merge') {
+          this.showEnding(
+            "★ 终章：神性合一 (APOTHEOSIS MERGE) ★",
+            "你化作纯粹的意识光斑，散入无数微观生命的神念中。古老造物主的形体湮灭于虚空，而在培养皿中睁开双眼的每一个微小个体，皆成了神。"
+          );
+          return;
+        }
+
+        // 跃迁进入下一纪元
+        if (this.currentEpoch < EPOCH_STORIES.length - 1) {
+          this.metrics.leapProgress = 0;
+          this.startEpoch(this.currentEpoch + 1);
+        }
+      }
+
+      showEnding(title, desc) {
+        document.getElementById('epi-title').textContent = title;
+        document.getElementById('epi-text').textContent = desc;
+        document.getElementById('epilogue-overlay').classList.remove('hidden');
+      }
+
+      updateChronicleUI() {
+        const container = document.getElementById('chronicle-container');
+        container.innerHTML = '';
+        this.chronicle.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'chronicle-card';
+          div.innerHTML = `<div class="spk">${item.speaker}</div><div class="cnt">${item.text}</div>`;
+          container.appendChild(div);
+        });
+        container.scrollTop = container.scrollHeight;
+      }
+
+      /* =========================================================================
+         6. 物理沙盒主循环、生物扩散与演化计算
+         ========================================================================= */
+      loop() {
+        this.updateSimulation();
+        this.render();
+        requestAnimationFrame(this.loop);
+      }
+
+      updateSimulation() {
+        // 根据温度与湿度更新生物群落指标
+        const curIdeal = EPOCH_STORIES[this.currentEpoch].ideal;
+        const tempFit = (this.env.temp >= curIdeal.temp[0] && this.env.temp <= curIdeal.temp[1]);
+        const moistFit = (this.env.moisture >= curIdeal.moisture[0] && this.env.moisture <= curIdeal.moisture[1]);
+
+        if (tempFit && moistFit) {
+          // 环境处于黄金宜居带，累积进化飞跃值
+          this.metrics.leapProgress = Math.min(100, this.metrics.leapProgress + 0.08);
+          this.metrics.biomass = Math.min(100, this.metrics.biomass + 0.05);
+          if (this.currentEpoch >= 1) this.metrics.o2 = Math.min(100, this.metrics.o2 + 0.06);
+          if (this.currentEpoch >= 2) this.metrics.neural = Math.min(100, this.metrics.neural + 0.05);
+        } else {
+          // 恶劣环境缓慢损耗
+          this.metrics.biomass = Math.max(10, this.metrics.biomass - 0.03);
+        }
+
+        // 更新仪表盘进度条
+        document.getElementById('bar-biomass').style.width = `${this.metrics.biomass}%`;
+        document.getElementById('metric-biomass').textContent = `${Math.round(this.metrics.biomass)}%`;
+
+        document.getElementById('bar-o2').style.width = `${this.metrics.o2}%`;
+        document.getElementById('metric-o2').textContent = `${Math.round(this.metrics.o2)}%`;
+
+        document.getElementById('bar-neural').style.width = `${this.metrics.neural}%`;
+        document.getElementById('metric-neural').textContent = `${Math.round(this.metrics.neural)}%`;
+
+        document.getElementById('bar-leap').style.width = `${this.metrics.leapProgress}%`;
+        document.getElementById('metric-leap').textContent = `${Math.round(this.metrics.leapProgress)}%`;
+
+        document.getElementById('disp-bios-count').textContent = `ENTITIES: ${this.entities.length}`;
+
+        // 实体运动
+        for (const e of this.entities) {
+          e.update(this.env, this.width, this.height, this.dishCx, this.dishCy, this.dishR);
+        }
+
+        // 飞跃阈值触发 (进度达 100% 且当前无对话)
+        if (this.metrics.leapProgress >= 100 && document.getElementById('dialogue-modal').classList.contains('hidden')) {
+          this.showLeapChoices();
+        }
+      }
+
+      /* =========================================================================
+         7. Canvas 渲染层：深空、拟真石英培养皿与流体发光微粒
+         ========================================================================= */
+      render() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        // 1. 虚空背景星辰
+        this.ctx.fillStyle = '#ffffff';
+        for (const s of this.stars) {
+          this.ctx.globalAlpha = s.a;
+          this.ctx.beginPath();
+          this.ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+        this.ctx.globalAlpha = 1.0;
+
+        // 2. 绘制圆环高透光石英培养皿
+        this.drawGenesisPetriDish();
+
+        // 3. 绘制皿内生物发光实体
+        for (const e of this.entities) {
+          e.draw(this.ctx);
+        }
+      }
+
+      drawGenesisPetriDish() {
+        const cx = this.dishCx;
+        const cy = this.dishCy;
+        const r = this.dishR;
+
+        this.ctx.save();
+
+        // 培养皿基底多层辉光流体
+        const fluidGrad = this.ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+        if (this.currentEpoch === 0) {
+          fluidGrad.addColorStop(0, 'rgba(12, 42, 60, 0.85)');
+          fluidGrad.addColorStop(0.7, 'rgba(8, 26, 42, 0.9)');
+          fluidGrad.addColorStop(1, 'rgba(2, 10, 20, 0.95)');
+        } else if (this.currentEpoch === 1) {
+          fluidGrad.addColorStop(0, 'rgba(6, 52, 48, 0.85)');
+          fluidGrad.addColorStop(0.7, 'rgba(4, 38, 36, 0.9)');
+          fluidGrad.addColorStop(1, 'rgba(2, 16, 18, 0.95)');
+        } else if (this.currentEpoch === 2) {
+          fluidGrad.addColorStop(0, 'rgba(38, 48, 20, 0.85)');
+          fluidGrad.addColorStop(0.7, 'rgba(24, 34, 16, 0.9)');
+          fluidGrad.addColorStop(1, 'rgba(10, 18, 10, 0.95)');
+        } else {
+          fluidGrad.addColorStop(0, 'rgba(54, 20, 36, 0.85)');
+          fluidGrad.addColorStop(0.7, 'rgba(36, 12, 28, 0.9)');
+          fluidGrad.addColorStop(1, 'rgba(14, 4, 12, 0.95)');
+        }
+
+        this.ctx.fillStyle = fluidGrad;
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 动态洋流波纹线 (环流流场渲染)
+        this.ctx.strokeStyle = 'rgba(0, 245, 212, 0.08)';
+        this.ctx.lineWidth = 1.5;
+        const time = Date.now() * 0.001;
+        for (let i = 1; i <= 4; i++) {
+          this.ctx.beginPath();
+          const waveR = r * (i * 0.22) + Math.sin(time + i) * 6;
+          this.ctx.arc(cx, cy, waveR, 0, Math.PI * 2);
+          this.ctx.stroke();
+        }
+
+        // 石英外环与金属黄铜包边 (Brass Rim & Glass Refraction)
+        this.ctx.strokeStyle = 'rgba(212, 175, 55, 0.7)';
+        this.ctx.lineWidth = 7;
+        this.ctx.shadowColor = 'rgba(212, 175, 55, 0.5)';
+        this.ctx.shadowBlur = 18;
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
+        this.ctx.stroke();
+
+        // 玻璃高光反光曲弧 (Meniscus reflection)
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        this.ctx.lineWidth = 2.5;
+        this.ctx.shadowBlur = 0;
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, r - 2, -Math.PI * 0.8, -Math.PI * 0.2);
+        this.ctx.stroke();
+
+        this.ctx.restore();
+      }
+
+      /* =========================================================================
+         8. 事件绑定与神性干预动作
+         ========================================================================= */
+      bindEvents() {
+        window.addEventListener('resize', () => {
+          this.initSize();
+          this.initStars();
+        });
+
+        // 滑动条响应
+        const sTemp = document.getElementById('slider-temp');
+        sTemp.addEventListener('input', (e) => {
+          this.env.temp = parseFloat(e.target.value);
+          document.getElementById('val-temp').textContent = `${this.env.temp} °C`;
+        });
+
+        const sMoist = document.getElementById('slider-moisture');
+        sMoist.addEventListener('input', (e) => {
+          this.env.moisture = parseFloat(e.target.value);
+          document.getElementById('val-moisture').textContent = `${this.env.moisture} %`;
+        });
+
+        const sNutr = document.getElementById('slider-nutrients');
+        sNutr.addEventListener('input', (e) => {
+          this.env.nutrients = parseFloat(e.target.value);
+          document.getElementById('val-nutrients').textContent = `${this.env.nutrients} %`;
+        });
+
+        const sFlux = document.getElementById('slider-flux');
+        sFlux.addEventListener('input', (e) => {
+          this.env.flux = parseFloat(e.target.value);
+          document.getElementById('val-flux').textContent = `${this.env.flux} %`;
+        });
+
+        // 四大神性介入
+        document.getElementById('act-lightning').addEventListener('click', () => {
+          sound.playAscensionChime();
+          this.metrics.leapProgress = Math.min(100, this.metrics.leapProgress + 15);
+          for (let i = 0; i < 15; i++) {
+            this.entities.push(new MicrobeEntity(this.dishCx, this.dishCy, this.dishR, this.currentEpoch));
+          }
+        });
+
+        document.getElementById('act-rain').addEventListener('click', () => {
+          sound.playBubblePop();
+          this.env.moisture = Math.min(100, this.env.moisture + 15);
+          sMoist.value = this.env.moisture;
+          document.getElementById('val-moisture').textContent = `${this.env.moisture} %`;
+        });
+
+        document.getElementById('act-vent').addEventListener('click', () => {
+          sound.playBubblePop();
+          this.env.temp = Math.min(100, this.env.temp + 10);
+          sTemp.value = this.env.temp;
+          document.getElementById('val-temp').textContent = `${this.env.temp} °C`;
+        });
+
+        document.getElementById('act-logos').addEventListener('click', () => {
+          sound.playAscensionChime();
+          this.metrics.leapProgress = Math.min(100, this.metrics.leapProgress + 35);
+        });
+
+        // 剧情推进
+        document.getElementById('btn-diag-advance').addEventListener('click', () => {
+          this.nextDialogue();
+        });
+
+        // QoL 按键
+        document.getElementById('btn-diag-auto').addEventListener('click', (e) => {
+          this.autoPlay = !this.autoPlay;
+          e.target.textContent = `AUTO 自动: ${this.autoPlay ? '开' : '关'}`;
+          e.target.classList.toggle('active', this.autoPlay);
+          if (this.autoPlay && !this.isTyping) this.nextDialogue();
+        });
+
+        document.getElementById('btn-diag-skip').addEventListener('click', () => {
+          this.dialogueIdx = this.dialogueQueue.length;
+          document.getElementById('dialogue-modal').classList.add('hidden');
+        });
+
+        document.getElementById('btn-chronicle').addEventListener('click', () => {
+          document.getElementById('chronicle-modal').classList.remove('hidden');
+        });
+        document.getElementById('btn-close-chronicle').addEventListener('click', () => {
+          document.getElementById('chronicle-modal').classList.add('hidden');
+        });
+
+        // 系统控制
+        document.getElementById('btn-reseed').addEventListener('click', () => {
+          this.seedEntities(120);
+          sound.playBubblePop();
+        });
+
+        document.getElementById('btn-sound').addEventListener('click', (e) => {
+          const on = sound.toggle();
+          e.target.textContent = `♫ 神性心跳: ${on ? '开启' : '关闭'}`;
+        });
+
+        document.getElementById('btn-restart-all').addEventListener('click', () => {
+          document.getElementById('epilogue-overlay').classList.add('hidden');
+          this.metrics = { biomass: 72, o2: 12, neural: 5, leapProgress: 25 };
+          this.startEpoch(0);
+        });
+      }
+    }
+
+    // 页面加载后启动
+    window.addEventListener('DOMContentLoaded', () => {
+      window.game = new TerraMicroGame();
+    });
+  </script>
+</body>
+</html>

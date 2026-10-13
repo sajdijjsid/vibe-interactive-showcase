@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>神经织网：记忆回响实验室 (SYNAPSE WEAVER: RESONANCE ARCHIVE)</title>
+  <style>
+    :root {
+      --bg: #03050c;
+      --panel-bg: rgba(7, 12, 26, 0.86);
+      --border-glow: rgba(56, 189, 248, 0.28);
+      --synapse-cyan: #38bdf8;
+      --synapse-glow: rgba(56, 189, 248, 0.45);
+      --synapse-purple: #c084fc;
+      --purple-glow: rgba(192, 132, 252, 0.45);
+      --resonance-gold: #fbbf24;
+      --gold-glow: rgba(251, 191, 36, 0.45);
+      --crimson: #f43f5e;
+      --text: #f1f5f9;
+      --text-muted: #64748b;
+      --font-mono: 'Consolas', 'Fira Code', 'Courier New', monospace;
+      --font-serif: 'Georgia', 'Songti SC', 'SimSun', serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+    }
+
+    /* 神经星云生物电 Canvas */
+    #synapse-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      cursor: grab;
+    }
+
+    #synapse-canvas:active {
+      cursor: grabbing;
+    }
+
+    /* 胶片晕影与微光滤镜 */
+    .vignette-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      pointer-events: none;
+      background: radial-gradient(circle at center, transparent 45%, rgba(2, 4, 10, 0.8) 100%);
+      box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.85);
+    }
+
+    /* 主 HUD 层 */
+    #hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+      padding: clamp(12px, 2.5vw, 24px);
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* 顶部研究所工作台 HUD */
+    header.lab-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-glow);
+      border-radius: 10px;
+      padding: 10px 18px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .subject-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .project-tag {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 2px;
+      color: var(--synapse-cyan);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .subject-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--synapse-purple);
+      box-shadow: 0 0 10px var(--synapse-purple);
+      animation: pulse-bio 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-bio {
+      0%, 100% { transform: scale(0.9); opacity: 0.5; }
+      50% { transform: scale(1.3); opacity: 1; }
+    }
+
+    /* 神经突触连通完整度 */
+    .resonance-meter {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .meter-unit {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 110px;
+    }
+
+    .meter-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .meter-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .meter-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--synapse-cyan), var(--synapse-purple), var(--resonance-gold));
+      box-shadow: 0 0 10px var(--synapse-glow);
+      transition: width 0.3s ease;
+    }
+
+    /* QoL 工具栏按钮 */
+    .lab-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-qol {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-glow);
+      color: var(--synapse-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 7px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+
+    .btn-qol:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--synapse-cyan);
+      box-shadow: 0 0 12px var(--synapse-glow);
+      transform: translateY(-1px);
+    }
+
+    .btn-qol.active {
+      background: var(--synapse-cyan);
+      color: #03050c;
+      font-weight: bold;
+    }
+
+    /* 中部记忆叙事投影窗 (Memory Cinematic Console) */
+    .narrative-display {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+      background: var(--panel-bg);
+      border: 1px solid var(--synapse-cyan);
+      box-shadow: 0 0 35px rgba(56, 189, 248, 0.22);
+      border-radius: 12px;
+      padding: 18px 24px;
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .narrative-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+    }
+
+    .narrative-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--resonance-gold);
+      letter-spacing: 1.5px;
+    }
+
+    .narrative-chord {
+      font-family: var(--font-serif);
+      font-size: 0.85rem;
+      color: var(--synapse-purple);
+      font-style: italic;
+    }
+
+    .narrative-quote {
+      font-family: var(--font-serif);
+      font-size: 1.02rem;
+      line-height: 1.7;
+      color: #e2e8f0;
+      min-height: 60px;
+    }
+
+    .narrative-quote .cursor {
+      display: inline-block;
+      width: 6px;
+      height: 14px;
+      background: var(--synapse-cyan);
+      margin-left: 4px;
+      vertical-align: middle;
+      animation: blink-cur 0.8s infinite;
+    }
+
+    @keyframes blink-cur {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    .memory-choices {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .choice-card {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-glow);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      text-align: left;
+    }
+
+    .choice-card:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: var(--synapse-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 18px var(--synapse-glow);
+    }
+
+    /* 底部操作与声纹解密入口 */
+    footer.lab-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .guide-tip {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-decrypt-mode {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(192, 132, 252, 0.2));
+      border: 1px solid var(--synapse-purple);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 20px rgba(192, 132, 252, 0.25);
+      transition: all 0.2s;
+    }
+
+    .btn-decrypt-mode:hover {
+      background: var(--synapse-purple);
+      color: #03050c;
+      box-shadow: 0 0 30px var(--purple-glow);
+    }
+
+    /* 声纹解密调音模态窗口 (Acoustic Waveform Decryption) */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 100;
+      background: rgba(3, 5, 12, 0.9);
+      backdrop-filter: blur(18px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      padding: 20px;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .decrypt-box {
+      width: 100%;
+      max-width: 620px;
+      background: var(--panel-bg);
+      border: 1px solid var(--synapse-cyan);
+      box-shadow: 0 0 40px var(--synapse-glow);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .decrypt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 8px;
+    }
+
+    .oscilloscope-canvas {
+      width: 100%;
+      height: 140px;
+      background: #02040a;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .tuner-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .slider-row label {
+      width: 120px;
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+      color: var(--synapse-cyan);
+    }
+
+    .slider-row input[type=range] {
+      flex: 1;
+      accent-color: var(--synapse-cyan);
+      cursor: pointer;
+    }
+
+    .resonance-match-val {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--resonance-gold);
+      width: 50px;
+      text-align: right;
+    }
+
+    /* 剧情回顾 LOG 弹窗 */
+    .log-container {
+      max-height: 380px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 8px;
+    }
+
+    .log-item {
+      border-left: 2px solid var(--synapse-cyan);
+      padding-left: 12px;
+      font-size: 0.85rem;
+    }
+
+    .log-item .chord {
+      color: var(--synapse-purple);
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+    }
+
+    /* 封面与结局遮罩 */
+    .cover-screen, .ending-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 50;
+      background: rgba(3, 5, 12, 0.94);
+      backdrop-filter: blur(24px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px;
+      gap: 20px;
+    }
+
+    .cover-logo {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 900;
+      letter-spacing: 4px;
+      font-family: var(--font-serif);
+      background: linear-gradient(135deg, #38bdf8, #c084fc, #fbbf24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 35px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn-bio-primary {
+      background: transparent;
+      border: 2px solid var(--synapse-cyan);
+      color: var(--synapse-cyan);
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
+      padding: 12px 36px;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.25s;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+    }
+
+    .btn-bio-primary:hover {
+      background: var(--synapse-cyan);
+      color: #03050c;
+      box-shadow: 0 0 35px var(--synapse-glow);
+      transform: scale(1.04);
+    }
+  </style>
+</head>
+<body>
+  <!-- 生物突触星云画布 -->
+  <canvas id="synapse-canvas"></canvas>
+  <div class="vignette-layer"></div>
+
+  <!-- HUD 界面 -->
+  <div id="hud-layer">
+    <!-- 顶部工作台 -->
+    <header class="lab-header">
+      <div class="header-card">
+        <div class="subject-info">
+          <span class="project-tag">NEURAL ARCHIVE #804</span>
+          <span class="subject-title"><span class="status-pulse"></span>已故大师「林弦」// 脑域记忆云</span>
+        </div>
+      </div>
+
+      <div class="header-card">
+        <div class="resonance-meter">
+          <div class="meter-unit">
+            <div class="meter-label">
+              <span>突触回路连通</span>
+              <span id="txt-circuit-percent">0%</span>
+            </div>
+            <div class="meter-track">
+              <div class="meter-fill" id="bar-circuit" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="meter-unit">
+            <div class="meter-label">
+              <span>声纹谐振度</span>
+              <span id="txt-resonance-percent">30%</span>
+            </div>
+            <div class="meter-track">
+              <div class="meter-fill" id="bar-resonance" style="width: 30%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lab-controls">
+        <button class="btn-qol interactive" id="btn-audio">🔊 声景:开</button>
+        <button class="btn-qol interactive" id="btn-log">📜 记忆志</button>
+        <button class="btn-qol interactive" id="btn-auto">⚡ 辅助织网</button>
+        <button class="btn-qol interactive" id="btn-skip">⏩ SKIP</button>
+      </div>
+    </header>
+
+    <!-- 中部记忆回响投影窗 (Narrative Cinematic Console) -->
+    <div class="narrative-display interactive" id="narrative-box">
+      <div class="narrative-header">
+        <span class="narrative-tag" id="narrative-act">ACT I : 残破的泛音 // 1984 旧琴房</span>
+        <span class="narrative-chord" id="narrative-chord">Harmonic: D Minor add9</span>
+      </div>
+      <div class="narrative-quote">
+        <span id="narrative-text">正在启动突触微电弧探测器……轻触拖拽散落的记忆突触球体，使其重新谐振共鸣。</span>
+        <span class="cursor" id="narrative-cursor"></span>
+      </div>
+      <div class="memory-choices" id="narrative-choices" style="display: none;">
+        <!-- 动态生成回忆选择 -->
+      </div>
+    </div>
+
+    <!-- 底部操作引导 -->
+    <footer class="lab-footer">
+      <div class="guide-tip">
+        ✦ 交互指引：在脑域中拖拽突触光点，拉出生物电弧连接匹配的记忆锚点
+      </div>
+
+      <button class="btn-decrypt-mode interactive" id="btn-open-decrypt">
+        🎛️ 进入记忆声纹调频解密
+      </button>
+    </footer>
+  </div>
+
+  <!-- 声纹调频解密模态窗 (Acoustic Waveform Decryption) -->
+  <div class="modal-overlay" id="modal-decrypt">
+    <div class="decrypt-box">
+      <div class="decrypt-header">
+        <span style="font-family: var(--font-mono); color: var(--synapse-cyan); font-weight: bold;">
+          ACOUSTIC RESONANCE DECRYPTION // 记忆声纹解密
+        </span>
+        <button class="btn-qol interactive" id="decrypt-close">✕ 关闭</button>
+      </div>
+
+      <canvas class="oscilloscope-canvas" id="oscilloscope-canvas" width="560" height="140"></canvas>
+
+      <div class="tuner-controls">
+        <div class="slider-row">
+          <label>基波频率 (Freq)</label>
+          <input type="range" id="slider-freq" min="200" max="800" value="340" class="interactive">
+          <span class="resonance-match-val" id="val-freq">340Hz</span>
+        </div>
+        <div class="slider-row">
+          <label>谐波泛音 (Harmonics)</label>
+          <input type="range" id="slider-harmonics" min="1" max="10" value="3" class="interactive">
+          <span class="resonance-match-val" id="val-harmonics">3.0</span>
+        </div>
+        <div class="slider-row">
+          <label>阻尼共振 (Q-Resonance)</label>
+          <input type="range" id="slider-q" min="1" max="20" value="8" class="interactive">
+          <span class="resonance-match-val" id="val-q">8.0</span>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);" id="decrypt-feedback">
+          提示：微调滑动条，让动态声纹完全吻合黄金谐振包络
+        </span>
+        <button class="btn-bio-primary interactive" id="btn-submit-decrypt" style="padding: 8px 24px; font-size: 0.85rem;">
+          谐振锁定
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 历史记忆志模态窗 (LOG) -->
+  <div class="modal-overlay" id="modal-log">
+    <div class="decrypt-box" style="max-height: 80vh;">
+      <div class="decrypt-header">
+        <span style="font-family: var(--font-mono); color: var(--synapse-cyan); font-weight: bold;">
+          RESONANCE ARCHIVE LOG // 记忆回响日志
+        </span>
+        <button class="btn-qol interactive" id="log-close">✕ 关闭</button>
+      </div>
+      <div class="log-container" id="log-container">
+        <!-- 动态插入 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 封面启航界面 -->
+  <div class="cover-screen interactive" id="screen-cover">
+    <h1 class="cover-logo">SYNAPSE WEAVER</h1>
+    <h2 style="font-size: 1.1rem; letter-spacing: 5px; color: var(--synapse-purple); font-family: var(--font-mono);">
+      记忆回响实验室 · RESONANCE ARCHIVE
+    </h2>
+    <p style="max-width: 620px; line-height: 1.7; color: #94a3b8; font-size: 0.95rem;">
+      你是神经记忆考古学家伊森博士。<br>
+      已故新古典主义钢琴大师「林弦」留下了残缺的脑域突触群。<br>
+      研究所要求你抹除其生前未公开发表、暗藏真相的《第九绝唱》。<br>
+      在生物电弧与温润琴音的共振中，你将拼凑出他怎样的灵魂全貌？
+    </p>
+    <button class="btn-bio-primary interactive" id="btn-start-lab">
+      WEAVE SYNAPSE // 编织突触电弧
+    </button>
+  </div>
+
+  <!-- 终章结局界面 -->
+  <div class="ending-screen interactive" id="screen-ending" style="display: none;">
+    <h1 class="cover-logo" id="ending-title">THE ETERNAL FUGUE</h1>
+    <h2 style="font-size: 1.2rem; color: var(--resonance-gold); font-family: var(--font-serif);" id="ending-subtitle">
+      结局 I · 永恒赋格
+    </h2>
+    <p style="max-width: 640px; line-height: 1.8; color: #e2e8f0; font-size: 0.98rem; white-space: pre-line;" id="ending-desc">
+      正在合成全频段母带……
+    </p>
+    <button class="btn-bio-primary interactive" id="btn-restart-lab">
+      RE-ARCHIVE // 重返记忆星云
+    </button>
+  </div>
+
+  <script>
+    /* ========================================================
+       1. 纯程序化 Web Audio 新古典钢琴与温暖和声引擎
+       完全零音频文件，物理建模泛音衰减算法与长混响氛围
+       ======================================================== */
+    class ProceduralPianoEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.masterGain = null;
+        this.ambientGain = null;
+        this.initialized = false;
+      }
+
+      init() {
+        if (this.initialized) return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.45, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+
+        // 持续微风与低频谐振垫音 (Ambient Warmth Drone)
+        this.ambientGain = this.ctx.createGain();
+        this.ambientGain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        this.ambientGain.connect(this.masterGain);
+
+        this.startAmbientDrones();
+        this.initialized = true;
+      }
+
+      startAmbientDrones() {
+        const droneNotes = [110.00, 164.81, 220.00]; // A2, E3, A3
+        droneNotes.forEach(freq => {
+          const osc = this.ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+          const lfo = this.ctx.createOscillator();
+          lfo.frequency.setValueAtTime(0.15, this.ctx.currentTime);
+          const lfoGain = this.ctx.createGain();
+          lfoGain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+
+          lfo.connect(osc.frequency);
+          lfo.start();
+
+          osc.connect(this.ambientGain);
+          osc.start();
+        });
+      }
+
+      // 物理建模温润钢琴单音 (Karplus/Additive Overtone Synth)
+      playPianoNote(freq, duration = 2.4, velocity = 0.35) {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+
+        // 谐波泛音级配 (基频 + 2次 + 3次 + 4次泛音)
+        const harmonics = [1, 2, 3, 4, 5];
+        const harmonicGains = [1.0, 0.45, 0.22, 0.12, 0.05];
+
+        harmonics.forEach((h, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = idx === 0 ? 'sine' : 'triangle';
+          osc.frequency.setValueAtTime(freq * h, t);
+
+          // 琴弦敲击瞬态衰减包络
+          const currentVel = velocity * harmonicGains[idx];
+          gain.gain.setValueAtTime(0.001, t);
+          gain.gain.linearRampToValueAtTime(currentVel, t + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + duration / (1 + idx * 0.4));
+
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+
+          osc.start(t);
+          osc.stop(t + duration);
+        });
+      }
+
+      // 奏响和谐突触和弦
+      playSynapseChord(chordType) {
+        if (!this.ctx || this.muted) return;
+        let freqs = [];
+        if (chordType === 'd_minor_add9') {
+          freqs = [146.83, 220.00, 261.63, 293.66, 370.0]; // D, A, C, D, F#
+        } else if (chordType === 'f_major7') {
+          freqs = [174.61, 220.00, 261.63, 329.63]; // F, A, C, E
+        } else if (chordType === 'a_minor9') {
+          freqs = [110.00, 164.81, 220.00, 261.63, 329.63, 392.00]; // A, E, A, C, E, G
+        } else {
+          freqs = [196.00, 246.94, 293.66, 392.00]; // G, B, D, G
+        }
+
+        freqs.forEach((f, i) => {
+          setTimeout(() => {
+            this.playPianoNote(f, 3.2, 0.28);
+          }, i * 90);
+        });
+      }
+
+      // 生物电弧连线微蜂鸣
+      playArcSpark() {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(800 + Math.random() * 400, t);
+        osc.frequency.exponentialRampToValueAtTime(200, t + 0.08);
+
+        gain.gain.setValueAtTime(0.04, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(t);
+        osc.stop(t + 0.08);
+      }
+
+      toggleMute() {
+        this.muted = !this.muted;
+        if (this.masterGain) {
+          this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.45, this.ctx.currentTime);
+        }
+        return !this.muted;
+      }
+    }
+
+    /* ========================================================
+       2. 记忆剧本与突触节点数据库 (Synapse & Narrative Graph)
+       ======================================================== */
+    const MEMORY_CHAPTERS = [
+      {
+        act: 'ACT I : 残破的泛音 // 1984 旧琴房',
+        chord: 'Harmonic: D Minor add9',
+        dialogue: '“那是第一场暴雨。琴房的木窗漏进潮湿的风，黑白琴键泛黄起翘。她递给我一杯温热的黑咖啡，说：别弹学院派的条条框框，弹你心跳的声音。”',
+        choices: [
+          { text: '【注入温暖】保留咖啡与指尖的触感记忆。', trait: 'warmth' },
+          { text: '【理性标记】解析雨声中混入的未完成和弦。', trait: 'analytical' }
+        ],
+        targetChord: 'd_minor_add9'
+      },
+      {
+        act: 'ACT II : 赋格中的背叛 // 1999 维也纳后台',
+        chord: 'Harmonic: F Major7 / C# Dim',
+        dialogue: '“掌声如雷霆般虚伪。赞助寡头夺走了乐谱版权，甚至在庆功酒里投下了神经阻断剂……他们在害怕这首曲子唤醒人们麻木的心智。”',
+        choices: [
+          { text: '【触碰痛楚】重现中毒当晚神经元剧烈颤抖的真相。', trait: 'truth' },
+          { text: '【抚平创伤】为记忆打上镇痛神经抑制补丁。', trait: 'mercy' }
+        ],
+        targetChord: 'f_major7'
+      },
+      {
+        act: 'ACT III : 终乐章抉择 // 2026 临终记忆云',
+        chord: 'Harmonic: A Minor 9 (Celestial Release)',
+        dialogue: '“伊森，如果你能听见这段声纹……不要让他们将我格式化为无害的标本。哪怕这首《第九绝唱》会撕开这个镀金时代的伤疤。”',
+        choices: [
+          { text: '【执行开源】冲破研究所防火墙，将绝唱公之于众！', branch: 'ETERNAL' },
+          { text: '【静默摇篮】依指令安抚并抹除痛苦，让大师安息。', branch: 'SILENCE' }
+        ],
+        targetChord: 'a_minor9'
+      }
+    ];
+
+    /* ========================================================
+       3. 核心交互系统：突触画板、贝塞尔电弧与声纹解密
+       ======================================================== */
+    class SynapseWeaverLab {
+      constructor() {
+        this.canvas = document.getElementById('synapse-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.audio = new ProceduralPianoEngine();
+
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+
+        // 神经突触图节点
+        this.nodes = [];
+        this.links = []; // 连接线
+        this.activeDragNode = null;
+        this.mousePos = { x: 0, y: 0 };
+        this.isDragging = false;
+
+        // 游戏进度状态
+        this.currentActIndex = 0;
+        this.isTyping = false;
+        this.typewriterTimer = null;
+        this.archiveLog = [];
+        this.circuitPercent = 0;
+        this.resonancePercent = 35;
+        this.decryptMatched = false;
+
+        // 动画浮动粒子
+        this.vesicles = []; // 突触小泡粒子
+
+        this.initResize();
+        this.initCanvasEvents();
+        this.initUIEvents();
+        this.initOscilloscope();
+      }
+
+      initResize() {
+        const resize = () => {
+          this.width = this.canvas.width = window.innerWidth;
+          this.height = this.canvas.height = window.innerHeight;
+          this.spawnInitialNodes();
+          this.spawnVesicles();
+        };
+        window.addEventListener('resize', resize);
+        resize();
+      }
+
+      spawnVesicles() {
+        this.vesicles = [];
+        for (let i = 0; i < 45; i++) {
+          this.vesicles.push({
+            x: Math.random() * this.width,
+            y: Math.random() * this.height,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: (Math.random() - 0.5) * 0.4,
+            radius: 1.5 + Math.random() * 3,
+            alpha: 0.15 + Math.random() * 0.4
+          });
+        }
+      }
+
+      spawnInitialNodes() {
+        // 在画布中间区域错落有致生成代表记忆碎片的突触节点
+        const cx = this.width * 0.5;
+        const cy = this.height * 0.5;
+
+        this.nodes = [
+          { id: 1, name: '初遇·雨夜', role: 'origin', x: cx - 220, y: cy - 90, radius: 24, color: '#38bdf8', pulse: 0 },
+          { id: 2, name: '旧琴房·泛音', role: 'target', x: cx - 80, y: cy + 110, radius: 22, color: '#38bdf8', pulse: 1 },
+          { id: 3, name: '背叛·毒药', role: 'conflict', x: cx + 110, y: cy - 130, radius: 26, color: '#c084fc', pulse: 2 },
+          { id: 4, name: '维也纳·绝唱', role: 'climax', x: cx + 240, y: cy + 70, radius: 25, color: '#c084fc', pulse: 3 },
+          { id: 5, name: '林弦·核心共鸣', role: 'core', x: cx, y: cy - 20, radius: 30, color: '#fbbf24', pulse: 4 }
+        ];
+
+        this.links = [];
+      }
+
+      initCanvasEvents() {
+        const getCanvasCoord = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+          };
+        };
+
+        const handleStart = (e) => {
+          const pos = getCanvasCoord(e);
+          this.mousePos = pos;
+          for (let node of this.nodes) {
+            const dist = Math.hypot(node.x - pos.x, node.y - pos.y);
+            if (dist <= node.radius + 15) {
+              this.activeDragNode = node;
+              this.isDragging = true;
+              this.audio.playArcSpark();
+              break;
+            }
+          }
+        };
+
+        const handleMove = (e) => {
+          const pos = getCanvasCoord(e);
+          this.mousePos = pos;
+        };
+
+        const handleEnd = () => {
+          if (this.activeDragNode) {
+            // 检查释放位置是否靠近另一个节点建立连接
+            for (let target of this.nodes) {
+              if (target !== this.activeDragNode) {
+                const dist = Math.hypot(target.x - this.mousePos.x, target.y - this.mousePos.y);
+                if (dist <= target.radius + 25) {
+                  this.createSynapseLink(this.activeDragNode, target);
+                  break;
+                }
+              }
+            }
+          }
+          this.activeDragNode = null;
+          this.isDragging = false;
+        };
+
+        this.canvas.addEventListener('mousedown', handleStart);
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+
+        this.canvas.addEventListener('touchstart', handleStart, { passive: false });
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+      }
+
+      createSynapseLink(nodeA, nodeB) {
+        // 检查是否已存在
+        const exists = this.links.some(l => 
+          (l.from === nodeA && l.to === nodeB) || (l.from === nodeB && l.to === nodeA)
+        );
+        if (exists) return;
+
+        this.links.push({ from: nodeA, to: nodeB, energy: 1 });
+        this.circuitPercent = Math.min(100, this.circuitPercent + 25);
+        document.getElementById('txt-circuit-percent').textContent = `${this.circuitPercent}%`;
+        document.getElementById('bar-circuit').style.width = `${this.circuitPercent}%`;
+
+        // 播放共鸣和弦
+        const currentChapter = MEMORY_CHAPTERS[this.currentActIndex];
+        this.audio.playSynapseChord(currentChapter.targetChord);
+
+        // 推进剧情台词
+        this.advanceChapter();
+      }
+
+      advanceChapter() {
+        if (this.currentActIndex >= MEMORY_CHAPTERS.length) {
+          this.showEndingModal('ETERNAL');
+          return;
+        }
+
+        const beat = MEMORY_CHAPTERS[this.currentActIndex];
+        const actTag = document.getElementById('narrative-act');
+        const chordTag = document.getElementById('narrative-chord');
+        const textSpan = document.getElementById('narrative-text');
+        const choicesBox = document.getElementById('narrative-choices');
+
+        actTag.textContent = beat.act;
+        chordTag.textContent = beat.chord;
+        textSpan.textContent = '';
+        choicesBox.style.display = 'none';
+        choicesBox.innerHTML = '';
+
+        // 逐字打字机
+        this.isTyping = true;
+        let charIdx = 0;
+        clearInterval(this.typewriterTimer);
+
+        this.typewriterTimer = setInterval(() => {
+          if (charIdx < beat.dialogue.length) {
+            textSpan.textContent += beat.dialogue[charIdx];
+            if (charIdx % 4 === 0) {
+              this.audio.playPianoNote(440 + Math.random() * 220, 1.2, 0.08);
+            }
+            charIdx++;
+          } else {
+            clearInterval(this.typewriterTimer);
+            this.isTyping = false;
+            this.showNarrativeChoices(beat);
+          }
+        }, 36);
+      }
+
+      showNarrativeChoices(beat) {
+        const choicesBox = document.getElementById('narrative-choices');
+        choicesBox.innerHTML = '';
+        choicesBox.style.display = 'flex';
+
+        beat.choices.forEach(c => {
+          const btn = document.createElement('div');
+          btn.className = 'choice-card interactive';
+          btn.textContent = c.text;
+          btn.onclick = () => {
+            this.archiveLog.push({ act: beat.act, chord: beat.chord, text: beat.dialogue, choice: c.text });
+            this.updateLogModal();
+
+            if (c.branch) {
+              this.showEndingModal(c.branch);
+            } else {
+              this.currentActIndex++;
+              choicesBox.style.display = 'none';
+            }
+          };
+          choicesBox.appendChild(btn);
+        });
+      }
+
+      updateLogModal() {
+        const container = document.getElementById('log-container');
+        container.innerHTML = '';
+        this.archiveLog.forEach(item => {
+          const el = document.createElement('div');
+          el.className = 'log-item';
+          el.innerHTML = `
+            <div style="font-weight: bold; color: var(--synapse-cyan); font-size: 0.78rem;">${item.act}</div>
+            <div class="chord">${item.chord}</div>
+            <div style="margin: 4px 0; color: #cbd5e1;">${item.text}</div>
+            <div style="color: var(--resonance-gold); font-size: 0.75rem;">↳ 神经考古决策: ${item.choice}</div>
+          `;
+          container.appendChild(el);
+        });
+      }
+
+      showEndingModal(branch) {
+        const screen = document.getElementById('screen-ending');
+        const title = document.getElementById('ending-title');
+        const sub = document.getElementById('ending-subtitle');
+        const desc = document.getElementById('ending-desc');
+
+        screen.style.display = 'flex';
+
+        if (branch === 'ETERNAL') {
+          title.textContent = 'THE ETERNAL FUGUE';
+          sub.textContent = '结局 I · 永恒赋格 (全域开源)';
+          desc.textContent = `你拒绝了研究所的格式化清洗协议。
+当所有突触电弧完整闭合的那一瞬间，整个记忆星云爆发出太阳般的璀璨光芒。
+《第九绝唱·孤独的回声》化作数亿条纯净的无损神经母带，经由全息公共网络流向了世界每一个终端。
+林弦的数字幽灵在音符的海洋中向你颔首微笑，随后化为了永恒的自由电波。
+时代记住了他，也记住了这间小小的回响实验室。`;
+        } else {
+          title.textContent = 'SILENT REQUIEM';
+          sub.textContent = '结局 II · 寂静安魂曲 (安息净化)';
+          desc.textContent = `你遵从了研究所的严密协议，将所有记录着痛苦、背叛与谋杀的突触神经元轻柔地剥离。
+那首震撼人心的绝唱永远沉睡在了加密冷库的深渊。
+但在林弦最后的梦境里，他重新回到了1984年那个漏雨的午后。
+没有名利场的毒药，没有寡头的剥削。
+只有一杯温热的黑咖啡，和琴键上静静流淌的初雨。`;
+        }
+      }
+
+      initUIEvents() {
+        document.getElementById('btn-audio').addEventListener('click', () => {
+          const on = this.audio.toggleMute();
+          document.getElementById('btn-audio').textContent = on ? '🔊 声景:开' : '🔇 声景:关';
+        });
+
+        document.getElementById('btn-auto').addEventListener('click', () => {
+          // 辅助织网：自动将最近两个未连接节点连线
+          for (let i = 0; i < this.nodes.length; i++) {
+            for (let j = i + 1; j < this.nodes.length; j++) {
+              const a = this.nodes[i];
+              const b = this.nodes[j];
+              const exists = this.links.some(l => (l.from === a && l.to === b) || (l.from === b && l.to === a));
+              if (!exists) {
+                this.createSynapseLink(a, b);
+                return;
+              }
+            }
+          }
+        });
+
+        document.getElementById('btn-skip').addEventListener('click', () => {
+          if (this.isTyping) {
+            clearInterval(this.typewriterTimer);
+            const beat = MEMORY_CHAPTERS[this.currentActIndex];
+            if (beat) {
+              document.getElementById('narrative-text').textContent = beat.dialogue;
+              this.isTyping = false;
+              this.showNarrativeChoices(beat);
+            }
+          }
+        });
+
+        document.getElementById('btn-log').addEventListener('click', () => {
+          document.getElementById('modal-log').classList.add('open');
+        });
+        document.getElementById('log-close').addEventListener('click', () => {
+          document.getElementById('modal-log').classList.remove('open');
+        });
+
+        document.getElementById('btn-open-decrypt').addEventListener('click', () => {
+          document.getElementById('modal-decrypt').classList.add('open');
+        });
+        document.getElementById('decrypt-close').addEventListener('click', () => {
+          document.getElementById('modal-decrypt').classList.remove('open');
+        });
+
+        document.getElementById('btn-start-lab').addEventListener('click', () => {
+          this.audio.init();
+          document.getElementById('screen-cover').style.display = 'none';
+          this.advanceChapter();
+        });
+
+        document.getElementById('btn-restart-lab').addEventListener('click', () => {
+          document.getElementById('screen-ending').style.display = 'none';
+          this.currentActIndex = 0;
+          this.circuitPercent = 0;
+          this.spawnInitialNodes();
+          this.advanceChapter();
+        });
+      }
+
+      /* ================= 声纹解密示波器调频微玩法 ================= */
+      initOscilloscope() {
+        const oscCanvas = document.getElementById('oscilloscope-canvas');
+        const octx = oscCanvas.getContext('2d');
+        const sliderFreq = document.getElementById('slider-freq');
+        const sliderHarm = document.getElementById('slider-harmonics');
+        const sliderQ = document.getElementById('slider-q');
+
+        const valFreq = document.getElementById('val-freq');
+        const valHarm = document.getElementById('val-harmonics');
+        const valQ = document.getElementById('val-q');
+        const feedback = document.getElementById('decrypt-feedback');
+
+        const updateSliders = () => {
+          valFreq.textContent = `${sliderFreq.value}Hz`;
+          valHarm.textContent = Number(sliderHarm.value).toFixed(1);
+          valQ.textContent = Number(sliderQ.value).toFixed(1);
+
+          // 黄金目标：Freq 440, Harm 4.0, Q 12.0
+          const fDiff = Math.abs(sliderFreq.value - 440);
+          const hDiff = Math.abs(sliderHarm.value - 4);
+          const qDiff = Math.abs(sliderQ.value - 12);
+
+          const match = Math.max(0, 100 - (fDiff * 0.2 + hDiff * 8 + qDiff * 4));
+          this.resonancePercent = Math.round(match);
+          document.getElementById('txt-resonance-percent').textContent = `${this.resonancePercent}%`;
+          document.getElementById('bar-resonance').style.width = `${this.resonancePercent}%`;
+
+          if (this.resonancePercent >= 88) {
+            feedback.textContent = '★ 谐振波形完美契合！已锁定林弦核心声纹！';
+            feedback.style.color = '#fbbf24';
+          } else {
+            feedback.textContent = '提示：微调滑动条，让动态声纹完全吻合黄金谐振包络';
+            feedback.style.color = '#64748b';
+          }
+        };
+
+        sliderFreq.addEventListener('input', updateSliders);
+        sliderHarm.addEventListener('input', updateSliders);
+        sliderQ.addEventListener('input', updateSliders);
+
+        document.getElementById('btn-submit-decrypt').addEventListener('click', () => {
+          if (this.resonancePercent >= 80) {
+            this.audio.playPianoNote(440, 3.5, 0.5);
+            this.audio.playPianoNote(554.37, 3.5, 0.4);
+            this.audio.playPianoNote(659.25, 3.5, 0.45);
+            document.getElementById('modal-decrypt').classList.remove('open');
+            this.advanceChapter();
+          } else {
+            feedback.textContent = '【谐振失真】匹配度未达标，请继续校准频率！';
+            feedback.style.color = '#f43f5e';
+          }
+        });
+
+        // 示波器渲染循环
+        const renderOsc = () => {
+          octx.clearRect(0, 0, oscCanvas.width, oscCanvas.height);
+
+          // 背景栅格
+          octx.strokeStyle = 'rgba(56, 189, 248, 0.1)';
+          octx.lineWidth = 1;
+          for (let x = 0; x < oscCanvas.width; x += 30) {
+            octx.beginPath(); octx.moveTo(x, 0); octx.lineTo(x, oscCanvas.height); octx.stroke();
+          }
+          for (let y = 0; y < oscCanvas.height; y += 30) {
+            octx.beginPath(); octx.moveTo(0, y); octx.lineTo(oscCanvas.width, y); octx.stroke();
+          }
+
+          // 黄金目标虚线波形 (Target Golden Wave)
+          octx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+          octx.setLineDash([4, 4]);
+          octx.beginPath();
+          for (let x = 0; x < oscCanvas.width; x++) {
+            const rad = (x / oscCanvas.width) * Math.PI * 4;
+            const y = (oscCanvas.height / 2) + Math.sin(rad) * 35 + Math.sin(rad * 4) * 12;
+            if (x === 0) octx.moveTo(x, y); else octx.lineTo(x, y);
+          }
+          octx.stroke();
+          octx.setLineDash([]);
+
+          // 玩家当前调制实线波形
+          const f = Number(sliderFreq.value) / 100;
+          const h = Number(sliderHarm.value);
+          const t = Date.now() * 0.003;
+
+          octx.strokeStyle = this.resonancePercent >= 88 ? '#fbbf24' : '#38bdf8';
+          octx.shadowColor = octx.strokeStyle;
+          octx.shadowBlur = 8;
+          octx.lineWidth = 2;
+          octx.beginPath();
+          for (let x = 0; x < oscCanvas.width; x++) {
+            const rad = (x / oscCanvas.width) * Math.PI * f + t;
+            const y = (oscCanvas.height / 2) + Math.sin(rad) * 35 + Math.sin(rad * h) * 12;
+            if (x === 0) octx.moveTo(x, y); else octx.lineTo(x, y);
+          }
+          octx.stroke();
+          octx.shadowBlur = 0;
+
+          requestAnimationFrame(renderOsc);
+        };
+        renderOsc();
+      }
+
+      /* ================= 神经星云与突触电弧渲染循环 ================= */
+      update() {
+        // 更新漂浮小泡
+        for (let v of this.vesicles) {
+          v.x += v.vx;
+          v.y += v.vy;
+          if (v.x < 0) v.x = this.width;
+          if (v.x > this.width) v.x = 0;
+          if (v.y < 0) v.y = this.height;
+          if (v.y > this.height) v.y = 0;
+        }
+
+        // 节点呼吸动态
+        for (let n of this.nodes) {
+          n.pulse += 0.03;
+        }
+      }
+
+      render() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        // 1. 深海神经微光渐变背景
+        const grad = this.ctx.createRadialGradient(
+          this.width * 0.5, this.height * 0.5, 50,
+          this.width * 0.5, this.height * 0.5, Math.max(this.width, this.height) * 0.7
+        );
+        grad.addColorStop(0, '#060d24');
+        grad.addColorStop(0.6, '#030612');
+        grad.addColorStop(1, '#020308');
+        this.ctx.fillStyle = grad;
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // 2. 渲染漂浮生物电发光小泡 (Brownian Vesicles)
+        for (let v of this.vesicles) {
+          this.ctx.fillStyle = `rgba(56, 189, 248, ${v.alpha})`;
+          this.ctx.beginPath();
+          this.ctx.arc(v.x, v.y, v.radius, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+
+        // 3. 渲染已连接的突触贝塞尔生物电弧 (Bezier Neural Synapse Arcs)
+        for (let link of this.links) {
+          const { from, to } = link;
+          this.ctx.save();
+          this.ctx.strokeStyle = '#38bdf8';
+          this.ctx.shadowColor = '#38bdf8';
+          this.ctx.shadowBlur = 14;
+          this.ctx.lineWidth = 2.5;
+
+          const midX = (from.x + to.x) / 2 + Math.sin(Date.now() * 0.002) * 15;
+          const midY = (from.y + to.y) / 2 + Math.cos(Date.now() * 0.002) * 15;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(from.x, from.y);
+          this.ctx.quadraticCurveTo(midX, midY, to.x, to.y);
+          this.ctx.stroke();
+
+          // 沿电弧流动动作电位脉冲 (Action Potential Pulse)
+          const progress = (Date.now() * 0.0015) % 1;
+          const pulseX = (1 - progress) * (1 - progress) * from.x + 2 * (1 - progress) * progress * midX + progress * progress * to.x;
+          const pulseY = (1 - progress) * (1 - progress) * from.y + 2 * (1 - progress) * progress * midY + progress * progress * to.y;
+
+          this.ctx.fillStyle = '#fbbf24';
+          this.ctx.shadowColor = '#fbbf24';
+          this.ctx.shadowBlur = 16;
+          this.ctx.beginPath();
+          this.ctx.arc(pulseX, pulseY, 4, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          this.ctx.restore();
+        }
+
+        // 4. 正在拖拽中的动态电弧
+        if (this.isDragging && this.activeDragNode) {
+          this.ctx.save();
+          this.ctx.strokeStyle = '#c084fc';
+          this.ctx.shadowColor = '#c084fc';
+          this.ctx.shadowBlur = 15;
+          this.ctx.lineWidth = 2;
+          this.ctx.setLineDash([6, 6]);
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.activeDragNode.x, this.activeDragNode.y);
+          this.ctx.lineTo(this.mousePos.x, this.mousePos.y);
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
+
+        // 5. 渲染记忆突触发光节点
+        for (let node of this.nodes) {
+          const breath = Math.sin(node.pulse) * 4;
+          const r = node.radius + breath;
+
+          this.ctx.save();
+          // 外晕圈
+          this.ctx.fillStyle = `${node.color}22`;
+          this.ctx.beginPath();
+          this.ctx.arc(node.x, node.y, r + 10, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          // 核心发光球体
+          this.ctx.fillStyle = node.color;
+          this.ctx.shadowColor = node.color;
+          this.ctx.shadowBlur = 18;
+          this.ctx.beginPath();
+          this.ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          // 文本标签
+          this.ctx.shadowBlur = 0;
+          this.ctx.font = '12px "Consolas", sans-serif';
+          this.ctx.fillStyle = '#f1f5f9';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(node.name, node.x, node.y + r + 18);
+
+          this.ctx.restore();
+        }
+      }
+
+      loop() {
+        this.update();
+        this.render();
+        requestAnimationFrame(() => this.loop());
+      }
+    }
+
+    // 页面初始化装载
+    window.addEventListener('load', () => {
+      const lab = new SynapseWeaverLab();
+      lab.loop();
+    });
+  </script>
+</body>
+</html>
