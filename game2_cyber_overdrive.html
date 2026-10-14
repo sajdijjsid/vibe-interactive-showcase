@@ -1414,12 +1414,18 @@
         this.pickups = [];
         this.drones = [];
 
-        // 调整关卡对应的剧情通讯进度
+        // 难度与物理逻辑递增阶梯 (巡航速度与障碍密度严密阶梯递增)
         if (this.currentStage === 0) {
+          this.speed = 72;
+          this.targetSpeed = 72;
           this.currentStoryIndex = 0;
         } else if (this.currentStage === 1) {
+          this.speed = 105;
+          this.targetSpeed = 105;
           this.currentStoryIndex = 2; // ambush_reveal
         } else if (this.currentStage === 2) {
+          this.speed = 140;
+          this.targetSpeed = 140;
           this.currentStoryIndex = 3; // mona_confession
         }
 
@@ -1746,21 +1752,31 @@
 
       spawnObstacle() {
         if (this.activeBeat) return; // 剧情通讯期间禁止生成障碍物，确保零干扰沉浸阅读
-        // 安全走廊保证机制：两障碍物之间严格留出充足间距，且高低交替，绝不生成死角！
-        const minSpacing = this.difficultyMode === 'FLOW' ? 420 : 280;
+        // 安全走廊保证机制：两障碍物之间按关卡梯级留出间距 (第1关500px -> 第2关360px -> 第3关260px)
+        const stageSpacings = [500, 360, 260];
+        const minSpacing = stageSpacings[this.currentStage] || 380;
         if (this.width + 50 - this.lastObstacleX < minSpacing) return;
 
         const isCeiling = !this.lastObstacleCeiling; // 严格交错高低分布
         this.lastObstacleCeiling = isCeiling;
         this.lastObstacleX = this.width + 50;
 
+        let type = 'BARRICADE';
+        if (this.currentStage === 0) {
+          type = 'BARRICADE'; // 基础路障，练习重力翻转
+        } else if (this.currentStage === 1) {
+          type = Math.random() > 0.4 ? 'LASER' : 'PLASMA_GATE'; // 激光障与等离子光刃连斩
+        } else {
+          type = Math.random() > 0.4 ? 'LASER' : (Math.random() > 0.5 ? 'PLASMA_GATE' : 'BARRICADE');
+        }
+
         this.obstacles.push({
           x: this.width + 50,
           y: isCeiling ? this.ceilingY : this.groundY - 45,
-          width: 30,
-          height: 45,
+          width: 32,
+          height: 48,
           isCeiling: isCeiling,
-          type: Math.random() > 0.4 ? 'LASER' : 'BARRICADE'
+          type: type
         });
       }
 

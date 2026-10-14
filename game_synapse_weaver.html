@@ -1138,6 +1138,14 @@
         const barEl = document.getElementById('bar-circuit');
         if (txtEl) txtEl.textContent = '0%';
         if (barEl) barEl.style.width = '0%';
+
+        // 第2关专属机制：自动展开三轴示波调频面板，引导消噪解密
+        if (stage === 1) {
+          setTimeout(() => {
+            const modal = document.getElementById('modal-decrypt');
+            if (modal) modal.classList.add('open');
+          }, 350);
+        }
       }
 
       initCanvasEvents() {
@@ -1550,7 +1558,25 @@
             this.audio.playPianoNote(554.37, 3.5, 0.4);
             this.audio.playPianoNote(659.25, 3.5, 0.45);
             document.getElementById('modal-decrypt').classList.remove('open');
-            this.advanceChapter();
+            this.circuitPercent = 100;
+            const bar = document.getElementById('bar-circuit');
+            if (bar) bar.style.width = '100%';
+            const txt = document.getElementById('txt-circuit-percent');
+            if (txt) txt.textContent = '100%';
+
+            if (this.currentStage === 1) {
+              if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                  type: 'STAGE_CLEAR',
+                  cartridgeId: 'game_synapse',
+                  stage: 1,
+                  stageTitle: '三轴示波器调频消噪',
+                  feedback: '三轴示波器谐振精准锁频，底噪完全消除，脑电回路达成谐波共振！'
+                }, '*');
+              }
+            } else {
+              this.advanceChapter();
+            }
           } else {
             feedback.textContent = '【谐振失真】匹配度未达标(需≥70%)，可点击一键智能锁定！';
             feedback.style.color = '#f43f5e';
