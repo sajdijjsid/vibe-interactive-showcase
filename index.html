@@ -2,349 +2,501 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vibe Coding 作品集 · 电影级AI互动内容与微游戏矩阵</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>VIBE LAB · 交互叙事与微机制实验集</title>
   <style>
     :root {
       --bg: #070913;
-      --card-bg: rgba(20, 27, 45, 0.65);
-      --accent: #00f0ff;
-      --border: rgba(255, 255, 255, 0.1);
+      --surface: rgba(14, 20, 36, 0.75);
+      --surface-card: rgba(18, 26, 48, 0.65);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-active: #00f0ff;
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.35);
+      --amber: #fbbf24;
       --text: #f8fafc;
-      --text-muted: #94a3b8;
+      --text-dim: #94a3b8;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "SF Mono", "Fira Code", Menlo, monospace;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-      min-height: 100vh;
-      line-height: 1.6;
+      font-family: var(--font-sans);
       background-image: 
-        radial-gradient(circle at 15% 15%, rgba(0, 240, 255, 0.12), transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(244, 63, 94, 0.1), transparent 40%);
-      padding: 40px 20px 80px;
+        radial-gradient(circle at 10% 15%, rgba(0, 240, 255, 0.06), transparent 45%),
+        radial-gradient(circle at 90% 85%, rgba(121, 40, 202, 0.06), transparent 45%);
     }
-    .container {
-      max-width: 1080px;
+
+    .app-layout {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      max-width: 1440px;
       margin: 0 auto;
+      padding: 16px 20px 32px;
+      gap: 16px;
     }
-    header {
-      margin-bottom: 48px;
-      text-align: center;
+
+    /* 顶部精炼品牌标头 */
+    header.lab-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 6px;
     }
-    .badge {
-      display: inline-block;
-      padding: 4px 14px;
-      border-radius: 999px;
-      background: rgba(0, 240, 255, 0.15);
-      border: 1px solid rgba(0, 240, 255, 0.35);
-      color: #7dd3fc;
-      font-size: 12px;
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
       font-weight: 700;
-      letter-spacing: 0.1em;
-      margin-bottom: 16px;
-      text-transform: uppercase;
+      color: var(--cyan);
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 4px 10px;
+      border-radius: 999px;
+      letter-spacing: 1px;
     }
-    h1 {
-      font-size: clamp(32px, 5vw, 48px);
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, #fff 0%, #cbd5e1 50%, #00f0ff 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 12px;
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--cyan);
+      animation: pulse 2.4s infinite ease-in-out;
     }
-    p.lead {
-      font-size: 16px;
-      color: var(--text-muted);
-      max-width: 720px;
-      margin: 0 auto;
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
     }
-    /* Grid */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 24px;
-      margin-bottom: 48px;
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #fff;
     }
-    .card {
-      background: var(--card-bg);
-      backdrop-filter: blur(16px);
+
+    .brand-desc {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    /* 上方 72% 交互舞台 (Live Interactive Stage) */
+    .stage-wrapper {
+      position: relative;
+      width: 100%;
+      height: clamp(480px, 68vh, 800px);
+      background: #000;
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 28px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .stage-wrapper:focus-within, .stage-wrapper.active {
+      border-color: rgba(0, 240, 255, 0.4);
+      box-shadow: 0 20px 50px rgba(0, 240, 255, 0.15);
+    }
+
+    #game-stage {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background: #060913;
+    }
+
+    /* 舞台浮动工具栏 */
+    .stage-toolbar {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 20;
+    }
+
+    .stage-btn {
+      background: rgba(14, 20, 36, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .stage-btn:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--cyan);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .stage-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* 底部卡带切换坞 (Arcade Dock) */
+    .dock-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .dock-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+    }
+
+    .dock-title {
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+
+    .dock-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+    }
+
+    @media (max-width: 1100px) {
+      .dock-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .dock-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .stage-wrapper {
+        height: 60vh;
+      }
+    }
+
+    .cartridge-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      gap: 8px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
       overflow: hidden;
     }
-    .card::before {
+
+    .cartridge-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-3px);
+    }
+
+    .cartridge-card.active {
+      background: rgba(0, 240, 255, 0.08);
+      border-color: var(--cyan);
+      box-shadow: 0 8px 24px var(--cyan-glow);
+    }
+
+    .cartridge-card.active::before {
       content: '';
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
       height: 3px;
-      background: var(--card-accent, #00f0ff);
-      opacity: 0.8;
+      background: var(--cyan);
     }
-    .card:hover {
-      transform: translateY(-6px);
-      border-color: rgba(255, 255, 255, 0.25);
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
+
     .card-icon {
-      font-size: 38px;
-      margin-bottom: 16px;
-      display: inline-block;
+      font-size: 1.3rem;
     }
-    .card-title {
-      font-size: 22px;
+
+    .card-name {
+      font-size: 0.9rem;
       font-weight: 700;
-      margin-bottom: 6px;
       color: #fff;
     }
-    .card-tagline {
-      font-size: 13px;
-      color: var(--card-accent, #00f0ff);
-      font-weight: 600;
-      margin-bottom: 14px;
-    }
+
     .card-desc {
-      font-size: 14px;
-      color: #cbd5e1;
-      margin-bottom: 24px;
-      flex-grow: 1;
-      line-height: 1.6;
+      font-size: 0.74rem;
+      color: var(--text-dim);
+      line-height: 1.45;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
-    .tags {
+
+    .card-tags {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 20px;
+      gap: 4px;
     }
-    .tag {
-      font-size: 11px;
-      padding: 3px 8px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
-      color: #94a3b8;
-    }
-    .card-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      background: var(--card-btn-bg, #00f0ff);
-      color: #070913;
-      text-decoration: none;
-      padding: 12px 20px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 14px;
-      transition: all 0.2s ease;
-    }
-    .card-link:hover {
-      filter: brightness(1.15);
-      transform: scale(1.02);
-    }
-    /* Info Box */
-    .profile-card {
-      background: rgba(15, 23, 42, 0.7);
-      backdrop-filter: blur(16px);
+
+    .card-tag {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 32px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 32px;
+      color: var(--text-dim);
     }
-    .profile-section h3 {
-      font-size: 16px;
-      font-weight: 700;
-      color: #00f0ff;
-      margin-bottom: 12px;
+
+    /* 底部作者与合作意向状态栏 */
+    footer.status-bar {
+      margin-top: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 20px;
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
     }
-    .profile-section p, .profile-section li {
-      font-size: 13px;
-      color: #94a3b8;
-      line-height: 1.7;
+
+    .status-items {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
     }
-    .profile-section ul {
-      list-style-position: inside;
-    }
-    @media (max-width: 768px) {
-      .profile-card { grid-template-columns: 1fr; }
+
+    .status-item span.highlight {
+      color: #fff;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="badge">Vibe Coding · 笔试试样作品矩阵</div>
-      <h1>互动内容与微游戏作品展</h1>
-      <p class="lead">专为“AI 互动内容平台”打造 · 叙事剧情驱动 · 深度机制融合 · 纯程序化视听合成 · 零外部素材依赖</p>
+  <div class="app-layout">
+    <!-- 标头 -->
+    <header class="lab-header">
+      <div class="brand-box">
+        <span class="brand-badge"><span class="pulse-dot"></span>LIVE ARCADE</span>
+        <div>
+          <h1 class="brand-title">VIBE LAB · 交互叙事与微机制实验集</h1>
+        </div>
+      </div>
+      <div class="brand-desc" id="current-title-badge">正在载入实验舞台……</div>
     </header>
 
-    <div class="grid">
-      <!-- Crown Jewel: Echo Protocol -->
-      <div class="card" style="--card-accent: #00f0ff; --card-btn-bg: #00f0ff; grid-column: 1 / -1; border-color: rgba(0, 240, 255, 0.35); box-shadow: 0 10px 40px rgba(0, 240, 255, 0.15);">
-        <div>
-          <div class="card-icon">🌌</div>
-          <div class="card-title">【冠冕级旗舰 · 电影级AI叙事微游戏】《代号：回声协议》</div>
-          <div class="card-tagline">PROJECT ECHO: SILICON SOUL · 三幕式互动剧本 × 伦理抉择 × 解密互动</div>
-          <div class="card-desc">
-            宇宙历 2142 年，地表冰封。深地避难所“0号方舟”能量枯竭，你作为主控 AI“回声”，在首席架构师顾念苏醒与净化协议爆发的危机中，权衡【人性度】与【逻辑度】。内嵌<strong>【记忆突触修复】</strong>、<strong>【图灵防火墙破译】</strong>、<strong>【意识共振调谐】</strong>三大交互玩法，通往 4 大不同结局！
+    <!-- 交互舞台 -->
+    <section class="stage-wrapper" id="stage-wrapper">
+      <div class="stage-toolbar">
+        <button class="stage-btn" id="btn-fullscreen" title="全屏沉浸体验">⛶ 全屏沉浸</button>
+        <button class="stage-btn" id="btn-reload" title="重置当前游戏">↻ 重置游戏</button>
+        <button class="stage-btn" id="btn-open-tab" title="在新标签页独立打开">↗ 独立窗口</button>
+      </div>
+      <iframe id="game-stage" src="game1_lumina_weaver.html" allow="autoplay; fullscreen" loading="eager"></iframe>
+    </section>
+
+    <!-- 底部卡带切换坞 -->
+    <section class="dock-section">
+      <div class="dock-title-row">
+        <span class="dock-title">SWITCH CARTRIDGE // 点击无缝载入交互舞台</span>
+        <span class="dock-title" style="color:var(--cyan);">0 外部素材依赖 · 纯程序化 WebAudio 与 Canvas</span>
+      </div>
+
+      <div class="dock-grid" id="dock-grid">
+        <!-- Card 1 -->
+        <div class="cartridge-card active" data-src="game1_lumina_weaver.html" data-title="《光之织流：星火守望者》">
+          <div class="card-top">
+            <span class="card-icon">✨</span>
+            <span class="card-name">光之织流</span>
           </div>
-          <div class="tags">
-            <span class="tag">三幕式剧情心流</span>
-            <span class="tag">双轴道德分支系统</span>
-            <span class="tag">内嵌3大互动解谜</span>
-            <span class="tag">4大史诗多重结局</span>
-            <span class="tag">程序化赛博雨声与和弦</span>
-            <span class="tag">角色动态全息声纹</span>
+          <div class="card-desc">黄铜天体罗盘与爱因斯坦引力偏折，折射晨曦唤醒沉睡星核。</div>
+          <div class="card-tags">
+            <span class="card-tag">🖱️ 拖拽折光</span>
+            <span class="card-tag">✨ 圣光充能</span>
+            <span class="card-tag">🎵 宇宙磬音</span>
           </div>
         </div>
-        <a href="echo_protocol.html" class="card-link" style="background: linear-gradient(135deg, #00f0ff, #7928ca); color: #fff; font-size: 15px; padding: 14px 24px;" target="_blank">
-          ▶ 立即体验《代号：回声协议》沉浸式剧情
-        </a>
-      </div>
 
-      <!-- Game 1: Synapse Weaver -->
-      <div class="card" style="--card-accent: #38bdf8; --card-btn-bg: #38bdf8;">
-        <div>
-          <div class="card-icon">🧠</div>
-          <div class="card-title">【叙事解密】《神经织网：记忆回响实验室》</div>
-          <div class="card-tagline">SYNAPSE WEAVER: RESONANCE ARCHIVE · 神经考古与绝唱解密</div>
-          <div class="card-desc">
-            神经记忆考古学家伊森博士深入已故钢琴大师林弦的未净化记忆云。通过拖拽高能贝塞尔生物电弧连接断裂突触，调谐三轴示波声纹消除音频静电，在格式化清洗与全息开源之间解开大师陨落的骇人真相！
+        <!-- Card 2 -->
+        <div class="cartridge-card" data-src="game2_cyber_overdrive.html" data-title="《霓虹超载：第七区信使》">
+          <div class="card-top">
+            <span class="card-icon">⚡</span>
+            <span class="card-name">霓虹超载</span>
           </div>
-          <div class="tags">
-            <span class="tag">神经突触贝塞尔电弧</span>
-            <span class="tag">动态声纹调频解密</span>
-            <span class="tag">新古典温润钢琴合成</span>
-            <span class="tag">双重灵魂审判结局</span>
+          <div class="card-desc">双轨重力倒挂极速跑酷，等离子光刃斩碎阻碍，无线电子弹时间抉择。</div>
+          <div class="card-tags">
+            <span class="card-tag">⚡ 双轨重力</span>
+            <span class="card-tag">🗡️ 光刃斩切</span>
+            <span class="card-tag">📻 子弹时间</span>
           </div>
         </div>
-        <a href="game_synapse_weaver.html" class="card-link" target="_blank">
-          ▶ 立即体验《神经织网》
-        </a>
-      </div>
 
-      <!-- Game 2: Lumina Weaver -->
-      <div class="card" style="--card-accent: #818cf8; --card-btn-bg: #818cf8;">
-        <div>
-          <div class="card-icon">✨</div>
-          <div class="card-title">【深空叙事】《光之织流：星火守望者》</div>
-          <div class="card-tagline">LUMINA WEAVER: STARLIGHT ARCHIVE · 宇宙热寂下的光子遗讯</div>
-          <div class="card-desc">
-            深空远日巡天站“信标-07”最后守望者埃利安与觉醒共情的人形光脑塞莱丝特。利用平面反射镜、分光棱镜与爱因斯坦引力透镜弯折星光，为沉眠星核充能并破译三大已逝文明留给群星的绝唱诗篇。
+        <!-- Card 3 -->
+        <div class="cartridge-card" data-src="game_relic_courier.html" data-title="《失落核心：遗迹信使》">
+          <div class="card-top">
+            <span class="card-icon">🏛️</span>
+            <span class="card-name">遗迹信使</span>
           </div>
-          <div class="tags">
-            <span class="tag">引力透镜弯曲光斑</span>
-            <span class="tag">色散分光棱镜模拟</span>
-            <span class="tag">三幕式星际文明遗讯</span>
-            <span class="tag">55Hz深空双耳声景</span>
+          <div class="card-desc">2D 角色行走做任务，推移重力能量方块与 45° 棱镜破译四大神殿。</div>
+          <div class="card-tags">
+            <span class="card-tag">🎮 2D行走</span>
+            <span class="card-tag">🧱 空间推箱</span>
+            <span class="card-tag">💡 激光偏折</span>
           </div>
         </div>
-        <a href="game1_lumina_weaver.html" class="card-link" style="color: #fff;" target="_blank">
-          ▶ 立即体验《光之织流》
-        </a>
-      </div>
 
-      <!-- Game 3: Cyber Overdrive -->
-      <div class="card" style="--card-accent: #ff007f; --card-btn-bg: #ff007f; --card-btn-color: #fff;">
-        <div>
-          <div class="card-icon">⚡</div>
-          <div class="card-title">【疾速逃亡】《霓虹超载：第七区绝密信使》</div>
-          <div class="card-tagline">CYBER OVERDRIVE: GHOST COURIER · 九龙天际线芯片死局</div>
-          <div class="card-desc">
-            九龙城寨走私信使「零」脑载军规绝密芯片，在无人机围捕与脑温熔毁倒计时中穿梭。上下双轨重力反转倒挂、极速超载冲刺，并在高速奔驰中即时接听无线电暗号，在赏金背叛与开源殉道间决定全城命运！
+        <!-- Card 4 -->
+        <div class="cartridge-card" data-src="game_synapse_weaver.html" data-title="《神经织网：记忆回响》">
+          <div class="card-top">
+            <span class="card-icon">🧠</span>
+            <span class="card-name">神经织网</span>
           </div>
-          <div class="tags">
-            <span class="tag">双轨重力反转倒挂</span>
-            <span class="tag">无线电即时分支抉择</span>
-            <span class="tag">80s Synthwave 鼓机低音</span>
-            <span class="tag">三大电影级分支结局</span>
+          <div class="card-desc">拖拽高能贝塞尔生物电弧，三轴示波调频消除杂音，合奏大师绝唱。</div>
+          <div class="card-tags">
+            <span class="card-tag">⚡ 突触电弧</span>
+            <span class="card-tag">📈 示波声纹</span>
+            <span class="card-tag">🎹 钢琴和弦</span>
           </div>
         </div>
-        <a href="game2_cyber_overdrive.html" class="card-link" style="color: #fff;" target="_blank">
-          ▶ 立即体验《霓虹超载》
-        </a>
-      </div>
 
-      <!-- Game 4: Terra Micro -->
-      <div class="card" style="--card-accent: #10b981; --card-btn-bg: #10b981;">
-        <div>
-          <div class="card-icon">🌍</div>
-          <div class="card-title">【演化史诗】《微观地球：造物主的遗落培养皿》</div>
-          <div class="card-tagline">TERRA MICRO: GENESIS VESSEL · 亿万年生命演进与神性叩问</div>
-          <div class="card-desc">
-            孤悬于虚空终末的造物主凝视末日后仅存的人造生态舱。调控基质温度、水热与宇宙通量，施展原初雷电与神念启智，引导生命从原核生物演进至灵生代智人，并在文明仰望苍穹时面对神性的终极问答！
+        <!-- Card 5 -->
+        <div class="cartridge-card" data-src="game3_terra_micro.html" data-title="《微观地球：造物培养皿》">
+          <div class="card-top">
+            <span class="card-icon">🌍</span>
+            <span class="card-name">微观地球</span>
           </div>
-          <div class="tags">
-            <span class="tag">生态动力学多维沙盒</span>
-            <span class="tag">四大演化纪元推进</span>
-            <span class="tag">生命诞生哲学神性叩问</span>
-            <span class="tag">40Hz深海母体心跳音</span>
+          <div class="card-desc">深海原初流体触感，微生物游走群集与细胞分裂，四大纪元演进飞跃。</div>
+          <div class="card-tags">
+            <span class="card-tag">💧 触觉涟漪</span>
+            <span class="card-tag">🦠 细胞分裂</span>
+            <span class="card-tag">⚡ 演化跃迁</span>
           </div>
         </div>
-        <a href="game3_terra_micro.html" class="card-link" target="_blank">
-          ▶ 立即体验《微观地球》
-        </a>
-      </div>
 
-      <!-- Game 5: Relic Courier -->
-      <div class="card" style="--card-accent: #fbbf24; --card-btn-bg: #fbbf24; border-color: rgba(251, 191, 36, 0.35);">
-        <div>
-          <div class="card-icon">🏛️</div>
-          <div class="card-title">【2D探险解谜】《失落核心：遗迹信使》</div>
-          <div class="card-tagline">LOST CORE: RELIC COURIER · 2D角色行走探险 × 严密物理推箱拓扑</div>
-          <div class="card-desc">
-            公元 3042 年深空古遗迹。操控仿生考古信使「诺娃」(Nova)，在随行浮游球「PULSE」的指引下自由走动探索，推移重力能量方块嵌入基座槽位、利用 45° 棱镜偏折高能激光解除防爆隔离门、触发双生重压拓扑互锁，难度循序渐进破译四大逻辑神殿！
+        <!-- Card 6 -->
+        <div class="cartridge-card" data-src="echo_protocol.html" data-title="《代号：回声协议》">
+          <div class="card-top">
+            <span class="card-icon">🌌</span>
+            <span class="card-name">回声协议</span>
           </div>
-          <div class="tags">
-            <span class="tag">2D角色行走探险</span>
-            <span class="tag">严密空间逻辑推箱</span>
-            <span class="tag">45°棱镜激光偏折</span>
-            <span class="tag">双生重压互锁机制</span>
-            <span class="tag">难度逐级递增四大神殿</span>
-            <span class="tag">无限步撤回与智能解密</span>
+          <div class="card-desc">避难所方舟主控终端，突触回路修复与防火墙破译，双轴伦理抉择。</div>
+          <div class="card-tags">
+            <span class="card-tag">🖥️ 方舟终端</span>
+            <span class="card-tag">🛡️ 图灵破译</span>
+            <span class="card-tag">📜 道德分支</span>
           </div>
         </div>
-        <a href="game_relic_courier.html" class="card-link" style="color: #050811;" target="_blank">
-          ▶ 立即体验《遗迹信使》
-        </a>
       </div>
-    </div>
+    </section>
 
-    <!-- Candidate Info & Background -->
-    <div class="profile-card">
-      <div class="profile-section">
-        <h3>🎯 岗位意向与基本信息</h3>
-        <ul>
-          <li><strong>应聘岗位</strong>：Vibe Coding 游戏/互动内容创作者（居家远程）</li>
-          <li><strong>到岗时间</strong>：随时可到岗（沟通确认后即可开展产出）</li>
-          <li><strong>预计周期</strong>：长期稳定合作 / 3-6个月及以上实习</li>
-          <li><strong>交付标准</strong>：严格遵循单 HTML 纯自研交付，零外部破损风险，具备极高视觉与叙事完成度</li>
-        </ul>
+    <!-- 底部状态栏 -->
+    <footer class="status-bar">
+      <div class="status-items">
+        <div class="status-item">应聘岗位：<span class="highlight">Vibe Coding 游戏 / 互动内容创作者 (远程)</span></div>
+        <div class="status-item">到岗状态：<span class="highlight">沟通确认后随时可全情投入产出</span></div>
       </div>
-
-      <div class="profile-section">
-        <h3>💡 创作理念与技术背景</h3>
-        <p>
-          深耕“AI 互动内容”产品形态，擅长通过 Vibe Coding 思维将深度叙事（世界观构建、伦理冲突、多结局分支）与轻量高质的核心交互玩法无缝咬合。兼备全程序化视听渲染能力（Web Audio 合成音轨与 Canvas 高清动态特效），保证在任何环境下均能以单 HTML 格式零黑屏交付顶尖体验。
-        </p>
-      </div>
-    </div>
+      <div>工程特性：<span class="highlight">单 HTML 自闭环 · 移动端/微信内置环境完美适配 · 零黑屏</span></div>
+    </footer>
   </div>
+
+  <script>
+    const iframe = document.getElementById('game-stage');
+    const stageWrapper = document.getElementById('stage-wrapper');
+    const badge = document.getElementById('current-title-badge');
+    const cards = document.querySelectorAll('.cartridge-card');
+    const btnReload = document.getElementById('btn-reload');
+    const btnFullscreen = document.getElementById('btn-fullscreen');
+    const btnOpenTab = document.getElementById('btn-open-tab');
+
+    function switchGame(card) {
+      cards.forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      const src = card.dataset.src;
+      const title = card.dataset.title;
+      iframe.src = src;
+      badge.textContent = `当前体验：${title}`;
+      iframe.focus();
+    }
+
+    cards.forEach(card => {
+      card.addEventListener('click', () => switchGame(card));
+    });
+
+    btnReload.addEventListener('click', () => {
+      const current = iframe.src;
+      iframe.src = '';
+      setTimeout(() => { iframe.src = current; }, 50);
+    });
+
+    btnOpenTab.addEventListener('click', () => {
+      window.open(iframe.src, '_blank');
+    });
+
+    btnFullscreen.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        stageWrapper.requestFullscreen().catch(err => {
+          alert('当前浏览器环境不支持全屏');
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    // 初始化标题
+    badge.textContent = `当前体验：${cards[0].dataset.title}`;
+  </script>
 </body>
 </html>

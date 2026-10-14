@@ -347,14 +347,22 @@
       position: absolute;
       inset: 0;
       z-index: 50;
-      background: rgba(5, 8, 17, 0.94);
-      backdrop-filter: blur(20px);
+      background: rgba(5, 8, 17, 0.76);
+      backdrop-filter: blur(12px);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 24px;
       text-align: center;
+      cursor: pointer;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+
+    #screen-ending {
+      background: rgba(5, 8, 17, 0.94);
+      backdrop-filter: blur(20px);
+      cursor: default;
     }
 
     .hero-badge {
@@ -484,6 +492,7 @@
           <button class="ctrl-btn" id="btn-undo">⎌ 撤回 [Z]</button>
           <button class="ctrl-btn" id="btn-reset">🔄 重置 [R]</button>
           <button class="ctrl-btn" id="btn-auto">💡 智能解密</button>
+          <button class="ctrl-btn" id="btn-fullscreen">⛶ 全屏</button>
           <button class="ctrl-btn" id="btn-audio">🔊 声音:开</button>
         </div>
       </header>
@@ -642,21 +651,51 @@
         });
       }
 
-      // 防爆隔热门气动开启
+      // 防爆隔热门气动开启 (机械泄气白噪 + 低频轰鸣震颤)
       playDoorOpen() {
         if (!this.ctx || this.muted) return;
         const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(140, t);
-        osc.frequency.exponentialRampToValueAtTime(420, t + 0.3);
-        gain.gain.setValueAtTime(0.25, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
-        osc.connect(gain);
-        gain.connect(this.masterGain);
-        osc.start(t);
-        osc.stop(t + 0.35);
+
+        // 1. 低频沉重机械轰鸣 (Sub Rumble)
+        const subOsc = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        subOsc.type = 'triangle';
+        subOsc.frequency.setValueAtTime(65, t);
+        subOsc.frequency.exponentialRampToValueAtTime(32, t + 0.45);
+        subGain.gain.setValueAtTime(0.35, t);
+        subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        subOsc.connect(subGain);
+        subGain.connect(this.masterGain);
+        subOsc.start(t);
+        subOsc.stop(t + 0.5);
+
+        // 2. 气动泄气声 (Pneumatic Steam Release / Whoosh)
+        try {
+          const bufferSize = this.ctx.sampleRate * 0.35;
+          const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1200, t);
+          filter.frequency.exponentialRampToValueAtTime(320, t + 0.35);
+          filter.Q.setValueAtTime(1.8, t);
+
+          const noiseGain = this.ctx.createGain();
+          noiseGain.gain.setValueAtTime(0.25, t);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+          noise.connect(filter);
+          filter.connect(noiseGain);
+          noiseGain.connect(this.masterGain);
+
+          noise.start(t);
+        } catch (e) {
+          console.warn('Pneumatic sound bypass', e);
+        }
       }
 
       // 撤回音效 (时间倒流感短滑音)
@@ -897,6 +936,8 @@
         this.initResize();
         this.initInput();
         this.initAvatars();
+        this.loadLevel(0);
+        this.startLoop();
       }
 
       initResize() {
@@ -929,10 +970,23 @@
       }
 
       initInput() {
+        const dismissStart = () => {
+          this.audio.init();
+          const screenTitle = document.getElementById('screen-title');
+          if (screenTitle && screenTitle.style.display !== 'none') {
+            screenTitle.style.opacity = '0';
+            screenTitle.style.pointerEvents = 'none';
+            setTimeout(() => { screenTitle.style.display = 'none'; }, 400);
+          }
+        };
+
         // 键盘按键监听
         window.addEventListener('keydown', (e) => {
-          if (document.getElementById('screen-title').style.display !== 'none' ||
-              document.getElementById('screen-ending').style.display === 'flex') return;
+          const screenTitle = document.getElementById('screen-title');
+          if (screenTitle && screenTitle.style.display !== 'none') {
+            dismissStart();
+          }
+          if (document.getElementById('screen-ending').style.display === 'flex') return;
 
           if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') this.tryMove(0, -1, 'UP');
           else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') this.tryMove(0, 1, 'DOWN');
@@ -948,6 +1002,7 @@
           if (!btn) return;
           const handler = (e) => {
             e.preventDefault();
+            dismissStart();
             this.tryMove(dx, dy, dir);
           };
           btn.addEventListener('pointerdown', handler);
@@ -959,7 +1014,11 @@
 
         // 画布点击直接移动 / 寻路
         this.canvas.addEventListener('pointerdown', (e) => {
-          if (document.getElementById('screen-title').style.display !== 'none') return;
+          const screenTitle = document.getElementById('screen-title');
+          if (screenTitle && screenTitle.style.display !== 'none') {
+            dismissStart();
+            return;
+          }
           const rect = this.canvas.getBoundingClientRect();
           const clickX = e.clientX - rect.left - this.offsetX;
           const clickY = e.clientY - rect.top - this.offsetY;
@@ -982,6 +1041,17 @@
         document.getElementById('btn-reset').addEventListener('click', () => this.resetLevel());
         document.getElementById('touch-reset').addEventListener('click', () => this.resetLevel());
 
+        const btnFs = document.getElementById('btn-fullscreen');
+        if (btnFs) {
+          btnFs.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+              document.exitFullscreen().catch(() => {});
+            }
+          });
+        }
+
         document.getElementById('btn-audio').addEventListener('click', () => {
           const on = this.audio.toggleMute();
           document.getElementById('btn-audio').textContent = on ? '🔊 声音:开' : '🔇 声音:关';
@@ -993,11 +1063,12 @@
         });
 
         // 标题与结算按钮
-        document.getElementById('btn-start-game').addEventListener('click', () => {
-          this.audio.init();
-          document.getElementById('screen-title').style.display = 'none';
-          this.loadLevel(0);
-          this.startLoop();
+        const st = document.getElementById('screen-title');
+        if (st) st.addEventListener('click', dismissStart);
+        const sg = document.getElementById('btn-start-game');
+        if (sg) sg.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dismissStart();
         });
 
         document.getElementById('btn-replay').addEventListener('click', () => {
@@ -1069,6 +1140,10 @@
         this.player.renderY = this.player.y;
         this.player.dir = 'DOWN';
         this.blocks = this.level.blocks;
+        this.blocks.forEach(b => {
+          b.renderX = b.x;
+          b.renderY = b.y;
+        });
         this.history = [];
         this.transitionProgress = 1.0;
         this.screenShake = 6;
@@ -1098,10 +1173,12 @@
         const prevState = this.history.pop();
         this.player.x = prevState.player.x;
         this.player.y = prevState.player.y;
-        this.player.renderX = this.player.x;
-        this.player.renderY = this.player.y;
         this.player.dir = prevState.player.dir;
         this.blocks = prevState.blocks;
+        this.blocks.forEach(b => {
+          if (b.renderX === undefined) b.renderX = b.x;
+          if (b.renderY === undefined) b.renderY = b.y;
+        });
         this.audio.playUndo();
         this.updatePuzzles();
       }
@@ -1109,7 +1186,15 @@
       recordState() {
         this.history.push({
           player: { x: this.player.x, y: this.player.y, dir: this.player.dir },
-          blocks: JSON.parse(JSON.stringify(this.blocks))
+          blocks: this.blocks.map(b => ({
+            id: b.id,
+            x: b.x,
+            y: b.y,
+            type: b.type,
+            angle: b.angle,
+            renderX: b.renderX,
+            renderY: b.renderY
+          }))
         });
       }
 
@@ -1164,6 +1249,19 @@
 
         this.player.x = targetX;
         this.player.y = targetY;
+
+        // 扬尘脚印微粒 (Walking Dust Particles)
+        for (let i = 0; i < 4; i++) {
+          this.particles.push({
+            x: (this.player.renderX + 0.5) * this.tileSize + this.offsetX + (Math.random() - 0.5) * 8,
+            y: (this.player.renderY + 0.8) * this.tileSize + this.offsetY + (Math.random() - 0.5) * 4,
+            vx: -dx * (0.4 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.6,
+            vy: -dy * (0.4 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.6,
+            color: 'rgba(148, 163, 184, 0.45)',
+            life: 0.6
+          });
+        }
+
         this.audio.playFootstep();
         this.updatePuzzles();
 
@@ -1193,6 +1291,7 @@
 
         // 2. 计算激光与棱镜光学路径
         this.laserPaths = [];
+        this.laserDeflections = [];
         if (this.level.laserTargets) {
           this.level.laserTargets.forEach(t => t.hit = false);
         }
@@ -1215,6 +1314,7 @@
               // 检查是否照射到棱镜
               const prism = this.blocks.find(b => b.x === cx && b.y === cy && b.type === 'PRISM');
               if (prism) {
+                this.laserDeflections.push({ x: cx, y: cy });
                 // 45° 棱镜偏折规则：RIGHT -> UP, DOWN -> LEFT, etc.
                 if (dir === 'RIGHT') dir = 'UP';
                 else if (dir === 'DOWN') dir = 'LEFT';
@@ -1314,6 +1414,12 @@
           this.player.y = 3;
         }
         this.updatePuzzles();
+        if (this.blocks) {
+          this.blocks.forEach(b => {
+            b.renderX = b.x;
+            b.renderY = b.y;
+          });
+        }
         this.handleLevelWin();
       }
 
@@ -1336,6 +1442,35 @@
           this.player.walkCycle += 0.2;
         } else {
           this.player.walkCycle = 0;
+        }
+
+        // 方块推移平滑插值 (Block Lerp)
+        if (this.blocks) {
+          this.blocks.forEach(b => {
+            if (b.renderX === undefined) b.renderX = b.x;
+            if (b.renderY === undefined) b.renderY = b.y;
+            b.renderX += (b.x - b.renderX) * lerpSpeed;
+            b.renderY += (b.y - b.renderY) * lerpSpeed;
+          });
+        }
+
+        // 棱镜 45° 偏折点持续高能火花微粒 (Continuous Laser Sparks)
+        if (this.laserDeflections && this.laserDeflections.length > 0) {
+          this.laserDeflections.forEach(d => {
+            if (Math.random() < 0.55) {
+              const ts = this.tileSize;
+              const angle = Math.random() * Math.PI * 2;
+              const spd = 0.8 + Math.random() * 2.2;
+              this.particles.push({
+                x: (d.x + 0.5) * ts + this.offsetX,
+                y: (d.y + 0.5) * ts + this.offsetY,
+                vx: Math.cos(angle) * spd,
+                vy: Math.sin(angle) * spd,
+                color: Math.random() > 0.4 ? '#fbbf24' : '#ffffff',
+                life: 0.7 + Math.random() * 0.3
+              });
+            }
+          });
         }
 
         // 震屏阻尼
@@ -1587,8 +1722,10 @@
         const ts = this.tileSize;
 
         this.blocks.forEach(b => {
-          const px = this.offsetX + b.x * ts;
-          const py = this.offsetY + b.y * ts;
+          const rx = b.renderX !== undefined ? b.renderX : b.x;
+          const ry = b.renderY !== undefined ? b.renderY : b.y;
+          const px = this.offsetX + rx * ts;
+          const py = this.offsetY + ry * ts;
 
           this.ctx.save();
           if (b.type === 'ENERGY') {

@@ -1061,38 +1061,73 @@
         oscSub.stop(t + 0.12);
       }
 
-      // 重力反转音效
+      // 重力反转音效 (80s 模拟合成器下潜低音扫频 Bass Sweep)
       playGravFlip() {
         if (!this.ctx || this.muted) return;
         const t = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
+        const sub = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
         const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(260, t);
-        osc.frequency.exponentialRampToValueAtTime(920, t + 0.18);
-        gain.gain.setValueAtTime(0.25, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-        osc.connect(gain);
+
+        osc.type = 'sawtooth';
+        sub.type = 'sine';
+        // 80s 经典低音下潜扫频 460Hz -> 55Hz
+        osc.frequency.setValueAtTime(460, t);
+        osc.frequency.exponentialRampToValueAtTime(55, t + 0.28);
+        sub.frequency.setValueAtTime(230, t);
+        sub.frequency.exponentialRampToValueAtTime(35, t + 0.28);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1600, t);
+        filter.frequency.exponentialRampToValueAtTime(180, t + 0.28);
+
+        gain.gain.setValueAtTime(0.32, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+        osc.connect(filter);
+        sub.connect(filter);
+        filter.connect(gain);
         gain.connect(this.masterGain);
+
         osc.start(t);
-        osc.stop(t + 0.2);
+        sub.start(t);
+        osc.stop(t + 0.3);
+        sub.stop(t + 0.3);
       }
 
-      // 超载冲刺轰鸣
+      // 超载冲刺轰鸣 (80s 强力低音冲击与引擎轰鸣 Bass Sweep)
       playOverdriveSfx() {
         if (!this.ctx || this.muted) return;
         const t = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
+        const sub = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
         const gain = this.ctx.createGain();
+
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(110, t);
-        osc.frequency.exponentialRampToValueAtTime(440, t + 0.3);
-        gain.gain.setValueAtTime(0.3, t);
+        sub.type = 'sine';
+        osc.frequency.setValueAtTime(320, t);
+        osc.frequency.exponentialRampToValueAtTime(45, t + 0.35);
+        sub.frequency.setValueAtTime(160, t);
+        sub.frequency.exponentialRampToValueAtTime(30, t + 0.35);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2200, t);
+        filter.frequency.exponentialRampToValueAtTime(220, t + 0.35);
+
+        gain.gain.setValueAtTime(0.38, t);
         gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
-        osc.connect(gain);
+
+        osc.connect(filter);
+        sub.connect(filter);
+        filter.connect(gain);
         gain.connect(this.masterGain);
+
         osc.start(t);
+        sub.start(t);
         osc.stop(t + 0.4);
+        sub.stop(t + 0.4);
       }
 
       // 无线电接通/呼叫哔声
@@ -1555,9 +1590,10 @@
 
       triggerGravityFlip() {
         this.player.gravityDir *= -1;
+        this.shake = 6; // 6 帧屏幕微震
         this.audio.playGravFlip();
         // 粒子爆发
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 18; i++) {
           this.particles.push({
             x: this.player.x + 20,
             y: this.player.y + 10,
@@ -1575,6 +1611,7 @@
           return;
         }
         this.player.overdriveTimer = 55; // 持续帧数
+        this.shake = 6; // 6 帧屏幕微震
         this.heat = Math.min(100, this.heat + 14);
         // 超载速度调优：心流模式 135 km/h，极限模式 190 km/h (避免 260 km/h 瞬间失控)
         this.targetSpeed = this.difficultyMode === 'FLOW' ? 135 : 190;
@@ -1582,7 +1619,7 @@
         this.audio.playOverdriveSfx();
 
         // 冲刺爆发粒子
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 28; i++) {
           this.particles.push({
             x: this.player.x,
             y: this.player.y + Math.random() * this.player.height,
@@ -1824,8 +1861,8 @@
       update() {
         if (this.state !== 'RUNNING') return;
 
-        // 1. 黑客子弹时间动态缩放 (无线电通讯接入时进入 0.05x 极度舒缓慢动作，彻底杜绝边读剧情边撞障的挫败感)
-        const targetTimeScale = this.activeBeat ? 0.05 : 1.0;
+        // 1. 黑客子弹时间动态缩放 (无线电通讯接入时平滑减速至 0.15x 慢动作，营造心跳加速的决策瞬间)
+        const targetTimeScale = this.activeBeat ? 0.15 : 1.0;
         this.timeScale += (targetTimeScale - this.timeScale) * 0.12;
 
         // 2. 速度插值与超载管理 (舒适平稳巡航，告别失控狂飙)
@@ -1887,9 +1924,23 @@
           }
         }
 
-        // 记录光痕尾迹
+        // 记录光痕尾迹与半透明残影 (Motion Trail & Ghosting)
         this.player.trail.unshift({ x: this.player.x, y: this.player.y + this.player.height / 2 });
         if (this.player.trail.length > 18) this.player.trail.pop();
+
+        if (!this.player.ghosts) this.player.ghosts = [];
+        this.player.ghosts.unshift({
+          x: this.player.x,
+          y: this.player.y,
+          gravityDir: this.player.gravityDir,
+          overdrive: this.player.overdriveTimer > 0,
+          alpha: 0.45
+        });
+        if (this.player.ghosts.length > 7) this.player.ghosts.pop();
+        for (let g of this.player.ghosts) {
+          g.x -= ((this.speed * 0.052) * this.timeScale) * 0.45;
+          g.alpha *= 0.82;
+        }
 
         // 随机生成障碍物与道具 (受安全走廊算法严格保护)
         if (Math.random() < 0.035) this.spawnObstacle();
@@ -2045,16 +2096,27 @@
         // 2. Synthwave 视差透视网格天花板与地面
         this.renderPerspectiveGrid();
 
-        // 3. 速度流光线
-        this.ctx.lineWidth = 1.5;
+        // 3. 高速霓虹速度线 (带渐变辉光)
+        this.ctx.save();
         for (let line of this.speedlines) {
-          const alpha = 0.15 + (this.speed / 300) * 0.4;
-          this.ctx.strokeStyle = `rgba(0, 243, 255, ${alpha})`;
+          const alpha = 0.2 + (this.speed / 200) * 0.5;
+          const strokeGrad = this.ctx.createLinearGradient(line.x, line.y, line.x + line.length, line.y);
+          if (this.player.overdriveTimer > 0) {
+            strokeGrad.addColorStop(0, 'rgba(255, 0, 85, 0)');
+            strokeGrad.addColorStop(1, `rgba(255, 0, 85, ${alpha})`);
+          } else {
+            strokeGrad.addColorStop(0, 'rgba(0, 243, 255, 0)');
+            strokeGrad.addColorStop(0.7, `rgba(0, 243, 255, ${alpha * 0.8})`);
+            strokeGrad.addColorStop(1, `rgba(255, 230, 0, ${alpha})`);
+          }
+          this.ctx.strokeStyle = strokeGrad;
+          this.ctx.lineWidth = 1.8;
           this.ctx.beginPath();
           this.ctx.moveTo(line.x, line.y);
           this.ctx.lineTo(line.x + line.length, line.y);
           this.ctx.stroke();
         }
+        this.ctx.restore();
 
         // 4. 磁浮上下轨道钢梁渲染
         this.ctx.fillStyle = '#0a1020';
@@ -2181,6 +2243,33 @@
           }
           this.ctx.stroke();
           this.ctx.restore();
+        }
+
+        // 运动残影拖尾 (Motion Trail Ghosting)
+        if (this.player.ghosts) {
+          for (let g of this.player.ghosts) {
+            if (g.alpha <= 0.02) continue;
+            this.ctx.save();
+            this.ctx.globalAlpha = g.alpha;
+            this.ctx.translate(g.x, g.y);
+            if (g.gravityDir === -1) {
+              this.ctx.scale(1, -1);
+              this.ctx.translate(0, -this.player.height);
+            }
+            this.ctx.fillStyle = g.overdrive ? 'rgba(255, 0, 85, 0.35)' : 'rgba(0, 243, 255, 0.28)';
+            this.ctx.strokeStyle = g.overdrive ? '#ff0055' : '#00f3ff';
+            this.ctx.lineWidth = 1.5;
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, this.player.height * 0.7);
+            this.ctx.lineTo(this.player.width * 0.7, 0);
+            this.ctx.lineTo(this.player.width, this.player.height * 0.6);
+            this.ctx.lineTo(this.player.width * 0.9, this.player.height);
+            this.ctx.lineTo(0, this.player.height);
+            this.ctx.closePath();
+            this.ctx.fill();
+            this.ctx.stroke();
+            this.ctx.restore();
+          }
         }
 
         // 赛博光轮机车主体

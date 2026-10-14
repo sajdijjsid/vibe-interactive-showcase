@@ -842,7 +842,7 @@
 
       <div class="diag-footer">
         <div class="diag-qol">
-          <button class="q-btn" id="btn-chronicle">编年史 LOG</button>
+          <button class="q-btn" id="btn-chronicle">📖 达尔文图鉴 / 编年史</button>
           <button class="q-btn" id="btn-diag-auto">AUTO 自动</button>
           <button class="q-btn" id="btn-diag-skip">SKIP 快进</button>
         </div>
@@ -851,13 +851,47 @@
     </div>
   </div>
 
-  <!-- 编年史 LOG 浮层 -->
+  <!-- 演化编年史与达尔文图鉴浮层 -->
   <div id="chronicle-modal" class="hidden">
     <div class="chronicle-hdr">
-      <div class="chronicle-title">演化编年史 // 哲学叩问卷宗 (GENESIS ARCHIVES)</div>
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div class="chronicle-title">GENESIS CODEX</div>
+        <div class="codex-tabs" style="display:flex; gap:6px;">
+          <button class="h-btn active" id="tab-codex-darwin" style="padding:4px 12px; font-size:12px; border-color:var(--dish-brass); color:var(--dish-brass);">🧬 达尔文演化图鉴</button>
+          <button class="h-btn" id="tab-codex-log" style="padding:4px 12px; font-size:12px;">📜 哲学编年史 LOG</button>
+        </div>
+      </div>
       <button class="h-btn" id="btn-close-chronicle">✕ 关闭</button>
     </div>
-    <div class="chronicle-list" id="chronicle-container"></div>
+
+    <!-- 达尔文演化图鉴分页卡片 -->
+    <div id="darwin-album-view" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; overflow-y:auto; padding:10px;">
+      <div class="darwin-book-card" style="background:rgba(8, 20, 36, 0.85); border:1px solid var(--dish-brass); border-radius:12px; padding:24px; max-width:680px; width:100%; box-shadow:0 0 35px rgba(212, 175, 55, 0.2); backdrop-filter:blur(12px); text-align:left;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(212, 175, 55, 0.3); padding-bottom:10px; margin-bottom:16px;">
+          <div style="font-family:var(--font-serif); font-size:1.15rem; color:var(--dish-brass); font-weight:bold;" id="darwin-species-title">始生代 · 原初单细胞大分子团</div>
+          <span style="font-family:var(--font-mono); font-size:0.75rem; color:var(--biolum-cyan);" id="darwin-page-indicator">EPOCH 1 / 4</span>
+        </div>
+        <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
+          <div id="darwin-specimen-box" style="width:110px; height:110px; border-radius:50%; border:2px solid var(--biolum-cyan); display:flex; align-items:center; justify-content:center; background:radial-gradient(circle, rgba(0,245,212,0.2) 0%, rgba(2,10,20,0.8) 100%); font-size:42px; box-shadow:0 0 20px rgba(0,245,212,0.3); flex-shrink:0;">
+            🦠
+          </div>
+          <div style="flex:1; min-width:240px;">
+            <div style="font-family:var(--font-mono); font-size:0.75rem; color:#94a3b8; margin-bottom:6px;">形态学分类: <span id="darwin-species-class" style="color:#e2e8f0;">原核球菌 / 原始核糖核酸聚集体</span></div>
+            <div style="font-family:var(--font-serif); font-size:0.88rem; line-height:1.7; color:#e2f1ff;" id="darwin-species-desc">
+              在无氧的高温原汤中自发凝聚。具备原始磷脂双分子层与基础布朗运动，当吸收水体养分达到临界体型后，将触发自发有丝分裂演化。
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08); flex-wrap:wrap; gap:8px;">
+          <button class="h-btn" id="btn-darwin-prev">◀ 上一纪元物种</button>
+          <div style="font-size:0.75rem; color:var(--biolum-cyan);" id="darwin-unlock-badge">★ 已载入达尔文演化图谱</div>
+          <button class="h-btn" id="btn-darwin-next">下一纪元物种 ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 哲学叩问对话记录 -->
+    <div class="chronicle-list" id="chronicle-container" style="display:none;"></div>
   </div>
 
   <!-- 终极结局浮层 -->
@@ -1099,33 +1133,109 @@
         this.type = epoch; // 0: 原核球菌, 1: 丝状蓝藻, 2: 脊索三叶虫, 3: 灵能光子
       }
 
-      update(env, width, height, cx, cy, dishR) {
+      update(env, width, height, cx, cy, dishR, entities = [], ripples = [], game = null) {
         this.pulsePhase += 0.05;
 
-        // 布朗运动与流体洋流拖曳
-        this.vx += (Math.random() - 0.5) * 0.25;
-        this.vy += (Math.random() - 0.5) * 0.25;
+        // 温度调控活跃度与游动速度 (冰蓝低温迟缓 vs 灼热高温极速)
+        const tempNorm = Math.min(1, Math.max(0, (env.temp + 30) / 130));
+        const agitation = 0.35 + tempNorm * 1.5;
+
+        // 1. 群聚游动 (Boids: 分离 + 对齐 + 凝聚)
+        let sepX = 0, sepY = 0, sepCount = 0;
+        let alignX = 0, alignY = 0, alignCount = 0;
+        let cohX = 0, cohY = 0, cohCount = 0;
+
+        const sampleStep = entities.length > 90 ? 2 : 1;
+        for (let i = 0; i < entities.length; i += sampleStep) {
+          const other = entities[i];
+          if (other === this) continue;
+          const dist = Math.hypot(other.x - this.x, other.y - this.y);
+          if (dist > 0 && dist < 18) {
+            sepX += (this.x - other.x) / dist;
+            sepY += (this.y - other.y) / dist;
+            sepCount++;
+          }
+          if (dist > 0 && dist < 52) {
+            alignX += other.vx;
+            alignY += other.vy;
+            alignCount++;
+            cohX += other.x;
+            cohY += other.y;
+            cohCount++;
+          }
+        }
+
+        if (sepCount > 0) {
+          this.vx += (sepX / sepCount) * 0.08 * agitation;
+          this.vy += (sepY / sepCount) * 0.08 * agitation;
+        }
+        if (alignCount > 0) {
+          this.vx += ((alignX / alignCount) - this.vx) * 0.04;
+          this.vy += ((alignY / alignCount) - this.vy) * 0.04;
+        }
+        if (cohCount > 0) {
+          this.vx += ((cohX / cohCount) - this.x) * 0.0012;
+          this.vy += ((cohY / cohCount) - this.y) * 0.0012;
+        }
+
+        // 2. 趋化性与进食有丝分裂 (Chemotaxis to Ripples & Mitosis)
+        if (ripples && ripples.length > 0) {
+          for (let rip of ripples) {
+            const rd = Math.hypot(rip.x - this.x, rip.y - this.y);
+            if (rd < 140) {
+              const ang = Math.atan2(rip.y - this.y, rip.x - this.x);
+              this.vx += Math.cos(ang) * 0.22 * agitation;
+              this.vy += Math.sin(ang) * 0.22 * agitation;
+              // 靠近涟漪源进食吸收营养
+              if (rd < rip.radius + 15) {
+                this.size += 0.025;
+                // 分裂条件：体型壮大且群落未超饱和
+                if (this.size >= 8.2 && entities.length < 160 && game) {
+                  this.size = 4.0;
+                  const daughter = new MicrobeEntity(cx, cy, dishR, this.epoch);
+                  daughter.x = this.x + (Math.random() - 0.5) * 10;
+                  daughter.y = this.y + (Math.random() - 0.5) * 10;
+                  daughter.size = 3.8;
+                  entities.push(daughter);
+                  if (game.spawnDivisionSparks) {
+                    game.spawnDivisionSparks(this.x, this.y, rip.color);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // 3. 极端温度逃逸微抖动
+        if (tempNorm > 0.85 || tempNorm < 0.1) {
+          this.vx += (Math.random() - 0.5) * 0.5 * agitation;
+          this.vy += (Math.random() - 0.5) * 0.5 * agitation;
+        } else {
+          this.vx += (Math.random() - 0.5) * 0.18 * agitation;
+          this.vy += (Math.random() - 0.5) * 0.18 * agitation;
+        }
 
         // 洋流环流效应 (逆时针轻微旋涡)
         const dx = this.x - cx;
         const dy = this.y - cy;
         const d = Math.hypot(dx, dy);
         const swirlAngle = Math.atan2(dy, dx) + Math.PI / 2;
-        this.vx += Math.cos(swirlAngle) * 0.08 * (d / dishR);
-        this.vy += Math.sin(swirlAngle) * 0.08 * (d / dishR);
+        this.vx += Math.cos(swirlAngle) * 0.06 * (d / dishR);
+        this.vy += Math.sin(swirlAngle) * 0.06 * (d / dishR);
 
-        // 速度阻尼
-        this.vx *= 0.94;
-        this.vy *= 0.94;
+        // 湿度阻尼
+        const damp = 0.94 - (env.moisture / 100) * 0.03;
+        this.vx *= damp;
+        this.vy *= damp;
 
-        this.x += this.vx;
-        this.y += this.vy;
+        this.x += this.vx * agitation;
+        this.y += this.vy * agitation;
 
-        // 培养皿边界弹性阻挡
-        if (d > dishR * 0.9) {
+        // 培养皿边界弹性软阻挡
+        if (d > dishR * 0.88) {
           const pushBackAngle = Math.atan2(dy, dx);
-          this.x = cx + Math.cos(pushBackAngle) * dishR * 0.89;
-          this.y = cy + Math.sin(pushBackAngle) * dishR * 0.89;
+          this.x = cx + Math.cos(pushBackAngle) * dishR * 0.87;
+          this.y = cy + Math.sin(pushBackAngle) * dishR * 0.87;
           this.vx = -this.vx * 0.5;
           this.vy = -this.vy * 0.5;
         }
@@ -1195,7 +1305,45 @@
     }
 
     /* =========================================================================
-       4. 游戏全生命周期主控制器
+       4. 达尔文演化图鉴数据库 (Darwin Evolution Codex)
+       ========================================================================= */
+    const DARWIN_CODEX = [
+      {
+        epoch: 0,
+        title: '始生代 · 原初单细胞与有机大分子团',
+        icon: '🦠',
+        class: '原核球菌 / 原始核糖核酸分子团 (Protocell)',
+        desc: '在极端还原态的沸腾原汤中诞生。具备原始磷脂双分子膜与布朗游动性，当受神明指尖触碰涟漪滋养时加速进食，达到临界体型后触发有丝分裂。',
+        color: '#00f5d4'
+      },
+      {
+        epoch: 1,
+        title: '元古代 · 丝状蓝细菌与光合自养菌群',
+        icon: '🌿',
+        class: '丝状蓝藻 / 光合自养多细胞原核体 (Cyanobacteria)',
+        desc: '演化出类囊体光反应系统。在培养皿中吐出微小的游离氧气泡，打破了无氧大气的死寂，为地球第一场“大氧化事件”奠定基石。',
+        color: '#10b981'
+      },
+      {
+        epoch: 2,
+        title: '显生代 · 寒武纪三叶虫与两栖多足生命',
+        icon: '🦞',
+        class: '节肢三叶虫 / 寒武纪早期后口动物 (Trilobite)',
+        desc: '骨骼钙化与复眼结构的伟大飞跃。生物个体演化出趋光性、集群游动（Boids）与神经趋避反射，生命第一次睁开眼睛观测宇宙。',
+        color: '#f59e0b'
+      },
+      {
+        epoch: 3,
+        title: '灵生代 · 燧石火光与智慧星舰灵能',
+        icon: '🔥',
+        class: '燧石智人 / 普罗米修斯火种初萌 (Promethean Mind)',
+        desc: '智慧与自省意识的诞生。不再仅仅被动顺应石英培养皿的环境约束，而是点燃燧石火光、仰望星空，渴望打破玻璃航向深空。',
+        color: '#f43f5e'
+      }
+    ];
+
+    /* =========================================================================
+       5. 游戏全生命周期主控制器
        ========================================================================= */
     class TerraMicroGame {
       constructor() {
@@ -1229,8 +1377,10 @@
         this.typeTimer = null;
         this.autoPlay = false;
 
-        // 神性触碰微观涟漪系统
+        // 神性触碰微观涟漪系统与演化粒子
         this.ripples = [];
+        this.particles = [];
+        this.darwinAlbumPage = 0;
 
         this.initSize();
         this.initStars();
@@ -1240,6 +1390,22 @@
 
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
+      }
+
+      spawnDivisionSparks(x, y, color = '#2dd4bf', count = 10) {
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = 0.8 + Math.random() * 2.6;
+          this.particles.push({
+            x, y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            radius: 1.2 + Math.random() * 2,
+            color,
+            alpha: 1.0,
+            decay: 0.03 + Math.random() * 0.03
+          });
+        }
       }
 
       addPrimordialRipple(x, y) {
@@ -1299,6 +1465,7 @@
 
       startEpoch(epochIdx) {
         this.currentEpoch = epochIdx;
+        this.darwinAlbumPage = epochIdx;
         const data = EPOCH_STORIES[epochIdx];
         document.getElementById('disp-epoch-name').textContent = data.epochName;
 
@@ -1307,8 +1474,42 @@
           e.epoch = epochIdx;
         });
 
+        this.updateDarwinCodexUI();
+
         // 播放本纪元故事剧本
         this.playDialogueSequence(data.dialogue, `纪元 ${epochIdx + 1}: ${data.epochName}`);
+      }
+
+      updateDarwinCodexUI() {
+        const item = DARWIN_CODEX[this.darwinAlbumPage];
+        if (!item) return;
+        const titleEl = document.getElementById('darwin-species-title');
+        const indEl = document.getElementById('darwin-page-indicator');
+        const boxEl = document.getElementById('darwin-specimen-box');
+        const classEl = document.getElementById('darwin-species-class');
+        const descEl = document.getElementById('darwin-species-desc');
+        const badgeEl = document.getElementById('darwin-unlock-badge');
+
+        if (titleEl) titleEl.textContent = item.title;
+        if (indEl) indEl.textContent = `EPOCH ${item.epoch + 1} / 4`;
+        if (boxEl) {
+          boxEl.textContent = item.icon;
+          boxEl.style.borderColor = item.color;
+          boxEl.style.boxShadow = `0 0 25px ${item.color}55`;
+        }
+        if (classEl) classEl.textContent = item.class;
+        if (descEl) descEl.textContent = item.desc;
+        if (badgeEl) {
+          const unlocked = this.currentEpoch >= item.epoch;
+          if (unlocked) {
+            badgeEl.textContent = `★ 已解锁达尔文演化图谱 (纪元 ${item.epoch + 1})`;
+            badgeEl.style.color = item.color;
+          } else {
+            badgeEl.textContent = `🔒 待演化飞跃解锁 (当前: 纪元 ${this.currentEpoch + 1})`;
+            badgeEl.style.color = '#64748b';
+          }
+        }
+        this.spawnDivisionSparks(this.dishCx, this.dishCy, item.color, 14);
       }
 
       /* =========================================================================
@@ -1506,9 +1707,21 @@
 
         document.getElementById('disp-bios-count').textContent = `ENTITIES: ${this.entities.length}`;
 
-        // 实体运动
-        for (const e of this.entities) {
-          e.update(this.env, this.width, this.height, this.dishCx, this.dishCy, this.dishR);
+        // 实体运动 (群聚游动、趋化性与有丝分裂)
+        for (let i = this.entities.length - 1; i >= 0; i--) {
+          const e = this.entities[i];
+          e.update(this.env, this.width, this.height, this.dishCx, this.dishCy, this.dishR, this.entities, this.ripples, this);
+        }
+
+        // 更新火花微粒
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vx *= 0.94;
+          p.vy *= 0.94;
+          p.alpha -= p.decay;
+          if (p.alpha <= 0) this.particles.splice(i, 1);
         }
 
         // 飞跃阈值触发 (进度达 100% 且当前无对话)
@@ -1563,7 +1776,20 @@
           this.ctx.restore();
         }
 
-        // 4. 绘制皿内生物发光实体
+        // 4. 绘制有丝分裂与演化微粒
+        for (const p of this.particles) {
+          this.ctx.save();
+          this.ctx.fillStyle = p.color;
+          this.ctx.globalAlpha = Math.max(0, p.alpha);
+          this.ctx.shadowColor = p.color;
+          this.ctx.shadowBlur = 8;
+          this.ctx.beginPath();
+          this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+        }
+
+        // 5. 绘制皿内生物发光实体
         for (const e of this.entities) {
           e.draw(this.ctx);
         }
@@ -1576,25 +1802,34 @@
 
         this.ctx.save();
 
-        // 培养皿基底多层辉光流体
-        const fluidGrad = this.ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
-        if (this.currentEpoch === 0) {
-          fluidGrad.addColorStop(0, 'rgba(12, 42, 60, 0.85)');
-          fluidGrad.addColorStop(0.7, 'rgba(8, 26, 42, 0.9)');
-          fluidGrad.addColorStop(1, 'rgba(2, 10, 20, 0.95)');
-        } else if (this.currentEpoch === 1) {
-          fluidGrad.addColorStop(0, 'rgba(6, 52, 48, 0.85)');
-          fluidGrad.addColorStop(0.7, 'rgba(4, 38, 36, 0.9)');
-          fluidGrad.addColorStop(1, 'rgba(2, 16, 18, 0.95)');
-        } else if (this.currentEpoch === 2) {
-          fluidGrad.addColorStop(0, 'rgba(38, 48, 20, 0.85)');
-          fluidGrad.addColorStop(0.7, 'rgba(24, 34, 16, 0.9)');
-          fluidGrad.addColorStop(1, 'rgba(10, 18, 10, 0.95)');
+        // 培养皿基底多层辉光流体 (根据温度 -30°C~100°C 丝滑渐变色温)
+        // 冰蓝 (-30°C) -> 翠绿 (35°C) -> 灼热琥珀红 (100°C)
+        const tNorm = Math.min(1, Math.max(0, (this.env.temp + 30) / 130));
+        let r1, g1, b1, r2, g2, b2;
+        if (tNorm < 0.5) {
+          // 冰蓝 (10, 48, 85) -> 翠绿 (8, 68, 56)
+          const p = tNorm / 0.5;
+          r1 = Math.round(10 + p * (8 - 10));
+          g1 = Math.round(48 + p * (68 - 48));
+          b1 = Math.round(85 + p * (56 - 85));
+          r2 = Math.round(2 + p * (2 - 2));
+          g2 = Math.round(16 + p * (24 - 16));
+          b2 = Math.round(32 + p * (20 - 32));
         } else {
-          fluidGrad.addColorStop(0, 'rgba(54, 20, 36, 0.85)');
-          fluidGrad.addColorStop(0.7, 'rgba(36, 12, 28, 0.9)');
-          fluidGrad.addColorStop(1, 'rgba(14, 4, 12, 0.95)');
+          // 翠绿 (8, 68, 56) -> 灼热琥珀 (88, 38, 14)
+          const p = (tNorm - 0.5) / 0.5;
+          r1 = Math.round(8 + p * (88 - 8));
+          g1 = Math.round(68 + p * (38 - 68));
+          b1 = Math.round(56 + p * (14 - 56));
+          r2 = Math.round(2 + p * (28 - 2));
+          g2 = Math.round(24 + p * (8 - 24));
+          b2 = Math.round(20 + p * (4 - 20));
         }
+
+        const fluidGrad = this.ctx.createRadialGradient(cx, cy, r * 0.1, cx, cy, r);
+        fluidGrad.addColorStop(0, `rgba(${r1}, ${g1}, ${b1}, 0.88)`);
+        fluidGrad.addColorStop(0.7, `rgba(${Math.round(r1*0.7)}, ${Math.round(g1*0.7)}, ${Math.round(b1*0.7)}, 0.92)`);
+        fluidGrad.addColorStop(1, `rgba(${r2}, ${g2}, ${b2}, 0.96)`);
 
         this.ctx.fillStyle = fluidGrad;
         this.ctx.beginPath();
@@ -1727,10 +1962,56 @@
 
         document.getElementById('btn-chronicle').addEventListener('click', () => {
           document.getElementById('chronicle-modal').classList.remove('hidden');
+          this.updateDarwinCodexUI();
         });
         document.getElementById('btn-close-chronicle').addEventListener('click', () => {
           document.getElementById('chronicle-modal').classList.add('hidden');
         });
+
+        // 达尔文图鉴与编年史选项卡切换
+        const tabDarwin = document.getElementById('tab-codex-darwin');
+        const tabLog = document.getElementById('tab-codex-log');
+        const viewDarwin = document.getElementById('darwin-album-view');
+        const viewLog = document.getElementById('chronicle-container');
+        if (tabDarwin && tabLog && viewDarwin && viewLog) {
+          tabDarwin.addEventListener('click', () => {
+            tabDarwin.classList.add('active');
+            tabDarwin.style.borderColor = 'var(--dish-brass)';
+            tabDarwin.style.color = 'var(--dish-brass)';
+            tabLog.classList.remove('active');
+            tabLog.style.borderColor = '';
+            tabLog.style.color = '';
+            viewDarwin.style.display = 'flex';
+            viewLog.style.display = 'none';
+            this.updateDarwinCodexUI();
+          });
+          tabLog.addEventListener('click', () => {
+            tabLog.classList.add('active');
+            tabLog.style.borderColor = 'var(--biolum-cyan)';
+            tabLog.style.color = 'var(--biolum-cyan)';
+            tabDarwin.classList.remove('active');
+            tabDarwin.style.borderColor = '';
+            tabDarwin.style.color = '';
+            viewDarwin.style.display = 'none';
+            viewLog.style.display = 'flex';
+            this.updateChronicleUI();
+          });
+        }
+
+        const btnPrev = document.getElementById('btn-darwin-prev');
+        const btnNext = document.getElementById('btn-darwin-next');
+        if (btnPrev && btnNext) {
+          btnPrev.addEventListener('click', () => {
+            this.darwinAlbumPage = (this.darwinAlbumPage - 1 + 4) % 4;
+            this.updateDarwinCodexUI();
+            sound.playBubblePop();
+          });
+          btnNext.addEventListener('click', () => {
+            this.darwinAlbumPage = (this.darwinAlbumPage + 1) % 4;
+            this.updateDarwinCodexUI();
+            sound.playBubblePop();
+          });
+        }
 
         // 系统控制
         document.getElementById('btn-reseed').addEventListener('click', () => {

@@ -3,26 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>代号：回声协议 (PROJECT ECHO: SILICON SOUL) · 电影级AI互动微游戏</title>
+  <title>代号：回声协议 · PROJECT ECHO</title>
   <style>
     :root {
-      --bg-color: #07090e;
-      --panel-bg: rgba(13, 19, 33, 0.85);
-      --panel-border: rgba(0, 240, 255, 0.28);
+      --bg: #060913;
+      --panel-bg: rgba(13, 19, 33, 0.78);
+      --panel-border: rgba(0, 240, 255, 0.25);
       --cyan: #00f0ff;
       --cyan-glow: rgba(0, 240, 255, 0.45);
       --amber: #ffb800;
       --amber-glow: rgba(255, 184, 0, 0.45);
       --crimson: #ff3366;
-      --crimson-glow: rgba(255, 51, 102, 0.45);
       --matrix: #00ff88;
-      --matrix-glow: rgba(0, 255, 136, 0.45);
       --purple: #bf5af2;
-      --purple-glow: rgba(191, 90, 242, 0.45);
       --text-main: #e0f2fe;
       --text-muted: #64748b;
-      --font-mono: 'Fira Code', 'Cascadia Code', 'Source Code Pro', 'Courier New', monospace;
-      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     * {
@@ -37,2657 +34,796 @@
     html, body {
       width: 100%;
       height: 100%;
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
-      min-height: 100dvh;
       overflow: hidden;
-      overscroll-behavior: none;
-      background-color: var(--bg-color);
+      background-color: var(--bg);
       color: var(--text-main);
       font-family: var(--font-sans);
-    }
-
-    canvas {
       touch-action: none;
     }
 
-    /* Canvas 背景层 */
-    #bg-canvas {
+    #stage-canvas {
       position: absolute;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
       z-index: 1;
-      pointer-events: none;
+      display: block;
       touch-action: none;
     }
 
     /* 赛博 CRT 扫描线与暗角滤镜 */
     .crt-overlay {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 2;
+      inset: 0;
       pointer-events: none;
-      background: radial-gradient(circle at center, transparent 55%, rgba(0, 0, 0, 0.78) 100%),
+      z-index: 2;
+      background: radial-gradient(circle at center, transparent 60%, rgba(3, 5, 12, 0.78) 100%),
                   linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%);
       background-size: 100% 100%, 100% 4px;
-      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.85);
+      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.8);
     }
 
-    /* 整体 UI 容器 - 全端自适应与刘海屏安全区适配 */
-    #app {
-      position: relative;
+    /* UI 悬浮顶层 */
+    #ui-container {
+      position: absolute;
+      inset: 0;
       z-index: 10;
-      width: 100%;
-      height: 100%;
+      pointer-events: none;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-      max-width: 960px;
+      padding: clamp(12px, 2.5vw, 20px);
+      max-width: 1000px;
       margin: 0 auto;
     }
 
     /* 顶部仪表盘 HUD */
     header.hud-header {
+      pointer-events: auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
       background: var(--panel-bg);
       border: 1px solid var(--panel-border);
-      border-radius: 10px;
-      padding: 8px 14px;
+      border-radius: 12px;
+      padding: 8px 16px;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
       gap: 12px;
     }
 
-    .hud-title-group {
+    .project-title-group {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      min-width: 120px;
     }
 
     .project-name {
       font-family: var(--font-mono);
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       letter-spacing: 2px;
-      color: var(--cyan);
-      text-transform: uppercase;
       font-weight: 700;
+      color: var(--cyan);
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
       background: var(--cyan);
+      border-radius: 50%;
       box-shadow: 0 0 8px var(--cyan);
-      animation: pulse-dot 2s infinite ease-in-out;
+      animation: pulse 2s infinite ease-in-out;
     }
 
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 0.4; transform: scale(0.9); }
-      50% { opacity: 1; transform: scale(1.2); }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.3); }
     }
 
-    .chapter-tag {
-      font-size: 0.7rem;
+    .project-sub {
+      font-size: 0.68rem;
       color: var(--text-muted);
-      font-family: var(--font-mono);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 220px;
+      letter-spacing: 1px;
     }
 
-    /* 双轴数值计量条与操作区 */
-    .hud-right-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
+    /* 双轴数值条 */
     .metrics-group {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 16px;
     }
 
-    .metric-item {
+    .metric-bar-item {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      width: 78px;
+      gap: 3px;
+      width: 80px;
     }
 
-    .metric-meta {
+    .metric-label-row {
       display: flex;
       justify-content: space-between;
-      font-size: 0.66rem;
-      font-family: var(--font-mono);
-    }
-
-    .metric-bar-bg {
-      width: 100%;
-      height: 5px;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 3px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .metric-bar-fill {
-      height: 100%;
-      width: 50%;
-      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.4s ease;
-    }
-
-    .fill-humanity {
-      background: linear-gradient(90deg, #ff8c00, #ffb800);
-      box-shadow: 0 0 6px var(--amber-glow);
-    }
-
-    .fill-logic {
-      background: linear-gradient(90deg, #00b4d8, #00f0ff);
-      box-shadow: 0 0 6px var(--cyan-glow);
-    }
-
-    /* 快捷功能按钮组 (QoL 控制栏) */
-    .qol-control-group {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .btn-cyber {
-      background: rgba(0, 240, 255, 0.06);
-      border: 1px solid var(--panel-border);
-      color: var(--cyan);
-      border-radius: 6px;
-      padding: 5px 9px;
-      font-size: 0.72rem;
-      cursor: pointer;
-      font-family: var(--font-mono);
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      outline: none;
-    }
-
-    .btn-cyber:hover {
-      background: rgba(0, 240, 255, 0.18);
-      border-color: var(--cyan);
-      transform: translateY(-1px);
-    }
-
-    .btn-cyber:active {
-      transform: translateY(1px);
-    }
-
-    .btn-cyber.active {
-      background: var(--cyan);
-      color: #050b14;
-      font-weight: 700;
-      box-shadow: 0 0 12px var(--cyan-glow);
-      border-color: var(--cyan);
-    }
-
-    .btn-cyber.active-amber {
-      background: var(--amber);
-      color: #050b14;
-      font-weight: 700;
-      box-shadow: 0 0 12px var(--amber-glow);
-      border-color: var(--amber);
-    }
-
-    /* 中间舞台：全息投影与剧场画面 */
-    main.stage-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-      margin: 8px 0;
-      min-height: 140px;
-    }
-
-    .hologram-card {
-      width: 100%;
-      max-width: 560px;
-      height: 100%;
-      max-height: 230px;
-      border: 1px solid rgba(0, 240, 255, 0.2);
-      background: radial-gradient(circle at center, rgba(0, 240, 255, 0.05) 0%, rgba(7, 9, 14, 0.6) 80%);
-      border-radius: 12px;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 10px 16px;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(8px);
-    }
-
-    #avatar-canvas {
-      width: 100%;
-      height: 150px;
-      max-width: 460px;
-      display: block;
-    }
-
-    .stage-hud-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      margin-top: 4px;
-      padding: 0 6px;
-    }
-
-    .speaker-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(0, 0, 0, 0.65);
-      border: 1px solid var(--panel-border);
-      border-radius: 100px;
-      padding: 3px 12px;
-      font-size: 0.74rem;
-      font-family: var(--font-mono);
-      letter-spacing: 1px;
-      color: var(--cyan);
-    }
-
-    .speaker-telemetry {
       font-size: 0.65rem;
       font-family: var(--font-mono);
-      color: var(--text-muted);
-      letter-spacing: 1px;
     }
 
-    /* 剧情文本框与分支交互区 */
-    footer.narrative-console {
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      border-radius: 12px;
-      padding: clamp(12px, 2.2vw, 20px);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+    .metric-track {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .metric-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .fill-humanity { background: var(--amber); box-shadow: 0 0 6px var(--amber-glow); }
+    .fill-logic { background: var(--cyan); box-shadow: 0 0 6px var(--cyan-glow); }
+
+    /* 控制快捷栏 */
+    .header-actions {
       display: flex;
-      flex-direction: column;
-      gap: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
-      position: relative;
-    }
-
-    .dialogue-text-area {
-      min-height: 64px;
-      max-height: clamp(80px, 18vh, 150px);
-      overflow-y: auto;
-      font-size: clamp(0.92rem, 1.7vw, 1.08rem);
-      line-height: 1.68;
-      color: var(--text-main);
-      cursor: pointer;
-      position: relative;
-      scroll-behavior: smooth;
-    }
-
-    .dialogue-text-area::-webkit-scrollbar {
-      width: 4px;
-    }
-    .dialogue-text-area::-webkit-scrollbar-thumb {
-      background: rgba(0, 240, 255, 0.25);
-      border-radius: 2px;
-    }
-
-    .typewriter-cursor {
-      display: inline-block;
-      width: 8px;
-      height: 1.1em;
-      vertical-align: sub;
-      background: var(--cyan);
-      margin-left: 4px;
-      animation: blink 0.8s infinite;
-    }
-
-    @keyframes blink {
-      0%, 100% { opacity: 0; }
-      50% { opacity: 1; }
-    }
-
-    .click-hint {
-      position: absolute;
-      right: 14px;
-      bottom: 10px;
-      font-size: 0.68rem;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      pointer-events: none;
-      animation: pulse-hint 1.5s infinite;
-    }
-
-    @keyframes pulse-hint {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 0.9; }
-    }
-
-    /* 选项按钮组 */
-    .choices-container {
-      display: flex;
-      flex-direction: column;
       gap: 8px;
     }
 
-    .choice-btn {
-      width: 100%;
-      text-align: left;
-      background: rgba(255, 255, 255, 0.035);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+    .hud-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
       color: var(--text-main);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: clamp(0.84rem, 1.5vw, 0.94rem);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      padding: 5px 10px;
+      border-radius: 6px;
       cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+    }
+
+    .hud-btn:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--cyan);
+      color: #fff;
+    }
+
+    /* 剧情字幕浮窗 (中央半透横幅) */
+    .story-banner {
+      pointer-events: auto;
+      background: rgba(10, 16, 28, 0.88);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-left: 3px solid var(--cyan);
+      padding: 12px 18px;
+      border-radius: 10px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      margin-bottom: 12px;
+      transition: all 0.3s;
+    }
+
+    .speaker-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--cyan);
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .story-text {
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: #f1f5f9;
+    }
+
+    /* 选项分支容器 */
+    .choices-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .choice-btn {
+      background: rgba(14, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
       font-family: var(--font-sans);
+      font-size: 0.82rem;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: left;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
-      overflow: hidden;
-      outline: none;
+      transition: all 0.2s;
     }
 
-    .choice-btn::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: var(--cyan);
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .choice-btn:hover, .choice-btn:focus-visible {
-      background: rgba(0, 240, 255, 0.08);
+    .choice-btn:hover {
+      background: rgba(0, 240, 255, 0.12);
       border-color: var(--cyan);
       transform: translateX(4px);
     }
 
-    .choice-btn:hover::before, .choice-btn:focus-visible::before {
-      opacity: 1;
-    }
-
-    .choice-left-content {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 1;
-    }
-
-    .choice-key-pill {
-      font-family: var(--font-mono);
-      font-size: 0.68rem;
-      padding: 1px 6px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-muted);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-    }
-
     .choice-tag {
+      font-size: 0.65rem;
       font-family: var(--font-mono);
-      font-size: 0.68rem;
-      padding: 3px 8px;
+      padding: 2px 6px;
       border-radius: 4px;
-      margin-left: 8px;
-      white-space: nowrap;
-    }
-
-    .tag-humanity {
-      background: rgba(255, 184, 0, 0.15);
-      color: var(--amber);
-      border: 1px solid rgba(255, 184, 0, 0.3);
-    }
-
-    .tag-logic {
-      background: rgba(0, 240, 255, 0.15);
-      color: var(--cyan);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-    }
-
-    .tag-secret {
-      background: rgba(191, 90, 242, 0.15);
-      color: var(--purple);
-      border: 1px solid rgba(191, 90, 242, 0.3);
-    }
-
-    .tag-neutral {
-      background: rgba(255, 255, 255, 0.08);
-      color: #94a3b8;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-    }
-
-    /* 📜 对话历史回溯 (LOG / Backlog) 抽屉模态框 */
-    .log-modal {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(7, 9, 14, 0.92);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      z-index: 60;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 16px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.28s ease;
-    }
-
-    .log-modal.active {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .log-box {
-      width: 100%;
-      max-width: 680px;
-      height: 85%;
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      box-shadow: 0 0 35px rgba(0, 240, 255, 0.25);
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .log-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 18px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(0, 0, 0, 0.4);
-    }
-
-    .log-title {
-      font-family: var(--font-mono);
-      font-size: 0.88rem;
-      color: var(--cyan);
-      font-weight: 700;
-      letter-spacing: 1px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .log-close-btn {
-      background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: var(--text-main);
-      padding: 4px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      transition: all 0.2s;
-    }
-
-    .log-close-btn:hover {
       background: rgba(255, 255, 255, 0.1);
-      border-color: var(--cyan);
       color: var(--cyan);
     }
 
-    .log-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      scroll-behavior: smooth;
-    }
-
-    .log-body::-webkit-scrollbar {
-      width: 5px;
-    }
-    .log-body::-webkit-scrollbar-thumb {
-      background: rgba(0, 240, 255, 0.3);
-      border-radius: 3px;
-    }
-
-    .log-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .log-speaker-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .log-speaker-tag {
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      font-weight: 700;
-    }
-
-    .log-time-tag {
-      font-family: var(--font-mono);
-      font-size: 0.62rem;
-      color: var(--text-muted);
-    }
-
-    .log-text {
-      font-size: 0.88rem;
-      line-height: 1.6;
-      color: #cbd5e1;
-    }
-
-    .log-choice-box {
-      margin-top: 4px;
-      padding: 6px 10px;
-      border-radius: 6px;
-      background: rgba(0, 240, 255, 0.06);
-      border-left: 3px solid var(--cyan);
-      font-size: 0.8rem;
-      color: var(--cyan);
-      font-family: var(--font-mono);
-    }
-
-    /* 剧情穿插的轻量小玩法弹窗模态框 */
-    .minigame-overlay {
+    /* 结局证书弹窗 */
+    .ending-overlay {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(7, 9, 14, 0.94);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      inset: 0;
       z-index: 50;
-      display: flex;
+      background: rgba(5, 8, 17, 0.94);
+      backdrop-filter: blur(20px);
+      display: none;
       flex-direction: column;
+      align-items: center;
       justify-content: center;
-      align-items: center;
-      padding: 16px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.35s ease;
-    }
-
-    .minigame-overlay.active {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .minigame-box {
-      width: 100%;
-      max-width: 500px;
-      background: var(--panel-bg);
-      border: 1px solid var(--cyan);
-      box-shadow: 0 0 35px var(--cyan-glow);
-      border-radius: 12px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      align-items: center;
-    }
-
-    .minigame-header {
+      padding: 24px;
       text-align: center;
     }
 
-    .minigame-title {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--cyan);
-      font-family: var(--font-mono);
-      letter-spacing: 1px;
-    }
-
-    .minigame-desc {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      margin-top: 4px;
-      line-height: 1.5;
-    }
-
-    /* 玩法1：神经网络矩阵节点连线 */
-    .matrix-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin: 8px 0;
-    }
-
-    .matrix-node {
-      width: 62px;
-      height: 62px;
-      border: 2px solid rgba(0, 240, 255, 0.3);
-      border-radius: 8px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      cursor: pointer;
-      background: rgba(0, 240, 255, 0.05);
-      transition: all 0.2s;
-    }
-
-    .matrix-node.synced {
-      background: rgba(0, 255, 136, 0.3);
-      border-color: var(--matrix);
-      box-shadow: 0 0 15px rgba(0, 255, 136, 0.5);
-      color: var(--matrix);
-      transform: scale(1.04);
-    }
-
-    /* 玩法2：图灵防火墙频率破译仪 */
-    .slider-control-group {
+    .cert-card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--amber);
+      border-radius: 14px;
+      padding: 22px;
+      max-width: 520px;
       width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .slider-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      font-family: var(--font-mono);
-    }
-
-    .cyber-slider {
-      width: 100%;
-      -webkit-appearance: none;
-      height: 6px;
-      border-radius: 3px;
-      background: rgba(255, 255, 255, 0.15);
-      outline: none;
-      cursor: pointer;
-    }
-
-    .cyber-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: var(--crimson);
-      cursor: pointer;
-      box-shadow: 0 0 10px var(--crimson-glow);
-    }
-
-    /* 玩法3：心率-算力共鸣双轨按键 */
-    .resonance-track {
-      width: 100%;
-      height: 48px;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 8px;
-      position: relative;
-      overflow: hidden;
-      margin: 8px 0;
-    }
-
-    .resonance-target-zone {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 60px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 255, 136, 0.25);
-      border-left: 2px dashed var(--matrix);
-      border-right: 2px dashed var(--matrix);
-    }
-
-    .resonance-runner {
-      position: absolute;
-      top: 4px;
-      bottom: 4px;
-      width: 14px;
-      background: var(--amber);
-      border-radius: 4px;
-      box-shadow: 0 0 10px var(--amber-glow);
-      left: 0;
-    }
-
-    .minigame-submit-btn {
-      background: var(--cyan);
-      color: #000;
-      border: none;
-      border-radius: 6px;
-      padding: 9px 22px;
-      font-weight: 700;
-      font-family: var(--font-mono);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .minigame-submit-btn:hover {
-      box-shadow: 0 0 18px var(--cyan-glow);
-      transform: translateY(-2px);
-    }
-
-    /* 结局卡片与一键评定证书模态 */
-    .ending-card {
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      max-width: 640px;
-      width: 100%;
-      margin: 0 auto;
-    }
-
-    .ending-badge {
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      padding: 5px 14px;
-      border-radius: 100px;
-      align-self: center;
-      letter-spacing: 2px;
-    }
-
-    .ending-title {
-      font-size: clamp(1.3rem, 2.8vw, 1.65rem);
-      font-weight: 700;
-      letter-spacing: 1px;
-    }
-
-    .ending-desc {
-      font-size: clamp(0.85rem, 1.6vw, 0.94rem);
-      line-height: 1.78;
-      color: #cbd5e1;
-      text-align: justify;
-      background: rgba(0, 0, 0, 0.35);
-      padding: 12px 16px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    /* 证书卡片面板 */
-    .certificate-panel {
-      border: 1px dashed rgba(0, 240, 255, 0.4);
-      background: rgba(0, 240, 255, 0.03);
-      border-radius: 10px;
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      font-family: var(--font-mono);
       text-align: left;
-    }
-
-    .cert-meta-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      padding-bottom: 4px;
-    }
-
-    .cert-scores {
-      display: flex;
-      gap: 16px;
-      font-size: 0.78rem;
-      margin: 4px 0;
-    }
-
-    .ending-action-group {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-top: 6px;
-      flex-wrap: wrap;
-    }
-
-    .btn-cert-copy {
-      background: linear-gradient(135deg, var(--cyan), #7928ca);
-      color: #fff;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 6px;
       font-family: var(--font-mono);
       font-size: 0.82rem;
+      line-height: 1.7;
+      box-shadow: 0 10px 40px rgba(255, 184, 0, 0.15);
+      margin-bottom: 20px;
+    }
+
+    .btn-action {
+      background: var(--cyan);
+      color: #030816;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
       font-weight: 700;
+      padding: 10px 24px;
+      border-radius: 8px;
+      border: none;
       cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
-    }
-
-    .btn-cert-copy:hover {
-      filter: brightness(1.15);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.5);
-    }
-
-    .restart-btn {
-      background: transparent;
-      border: 1px solid var(--panel-border);
-      color: var(--text-main);
-      padding: 10px 18px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-family: var(--font-mono);
-      font-size: 0.82rem;
       transition: all 0.2s;
     }
 
-    .restart-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: var(--cyan);
-      color: var(--cyan);
+    .btn-action:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 20px var(--cyan-glow);
     }
 
-    /* 浮动 Toast 提示 */
-    .toast-notification {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: rgba(13, 19, 33, 0.95);
-      border: 1px solid var(--matrix);
-      color: var(--matrix);
-      padding: 8px 18px;
-      border-radius: 100px;
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
-      z-index: 100;
-      pointer-events: none;
-      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
-      opacity: 0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .toast-notification.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
-
-    /* 响应式调整与全端零溢出 */
     @media (max-width: 640px) {
-      .hud-header {
-        padding: 5px 8px;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .hud-title-group {
-        min-width: auto;
-      }
-      .chapter-tag {
-        max-width: 140px;
-      }
-      .hud-right-group {
-        gap: 6px;
-      }
-      .metrics-group {
-        gap: 6px;
-      }
-      .metric-item {
-        width: 52px;
-      }
-      .qol-control-group {
-        gap: 4px;
-      }
-      .qol-control-group .btn-cyber span.btn-label {
-        display: none;
-      }
-      .qol-control-group .btn-cyber {
-        padding: 4px 6px;
-      }
-      .hologram-card {
-        max-height: 180px;
-        padding: 8px;
-      }
-      #avatar-canvas {
-        height: 120px;
-      }
-      .dialogue-text-area {
-        min-height: 56px;
-      }
-      .choice-btn {
-        padding: 8px 10px;
-      }
-      .matrix-node {
-        width: 52px;
-        height: 52px;
-      }
-    }
-
-    /* 移动端横屏微调 */
-    @media (max-height: 500px) {
-      header.hud-header {
-        padding: 4px 10px;
-      }
-      main.stage-container {
-        min-height: 90px;
-        margin: 4px 0;
-      }
-      .hologram-card {
-        max-height: 110px;
-        padding: 4px 8px;
-      }
-      #avatar-canvas {
-        height: 80px;
-      }
-      footer.narrative-console {
-        padding: 8px 12px;
-        gap: 6px;
-      }
-      .dialogue-text-area {
-        min-height: 40px;
-        max-height: 70px;
-      }
-      .choice-btn {
-        padding: 6px 10px;
-      }
+      #ui-container { padding: 10px; }
+      .metrics-group { gap: 8px; }
+      .metric-bar-item { width: 55px; }
+      .story-text { font-size: 0.8rem; }
     }
   </style>
 </head>
 <body>
-  <canvas id="bg-canvas"></canvas>
+  <canvas id="stage-canvas"></canvas>
   <div class="crt-overlay"></div>
 
-  <div id="app">
-    <!-- 顶部 HUD 状态栏 -->
+  <!-- HUD 与交互层 -->
+  <div id="ui-container">
+    <!-- 顶部 HUD -->
     <header class="hud-header">
-      <div class="hud-title-group">
-        <div class="project-name">
-          <span class="status-dot"></span>
-          <span>ECHO // 回声协议</span>
-        </div>
-        <div class="chapter-tag" id="hud-chapter">ACT I : 虚空摇篮</div>
+      <div class="project-title-group">
+        <div class="project-name"><span class="pulse-dot"></span>ECHO PROTOCOL</div>
+        <div class="project-sub">方舟 0 号主控终端 // 能量 4.7%</div>
       </div>
 
-      <div class="hud-right-group">
-        <div class="metrics-group">
-          <div class="metric-item">
-            <div class="metric-meta">
-              <span style="color: var(--amber)">人性</span>
-              <span id="txt-humanity">50</span>
-            </div>
-            <div class="metric-bar-bg">
-              <div class="metric-bar-fill fill-humanity" id="bar-humanity" style="width: 50%;"></div>
-            </div>
+      <div class="metrics-group">
+        <div class="metric-bar-item">
+          <div class="metric-label-row">
+            <span style="color:var(--amber);">人性</span>
+            <span id="val-humanity">50%</span>
           </div>
-
-          <div class="metric-item">
-            <div class="metric-meta">
-              <span style="color: var(--cyan)">逻辑</span>
-              <span id="txt-logic">50</span>
-            </div>
-            <div class="metric-bar-bg">
-              <div class="metric-bar-fill fill-logic" id="bar-logic" style="width: 50%;"></div>
-            </div>
+          <div class="metric-track">
+            <div class="metric-fill fill-humanity" id="bar-humanity" style="width: 50%;"></div>
           </div>
         </div>
 
-        <!-- QoL 商业级控制栏 -->
-        <div class="qol-control-group">
-          <button class="btn-cyber" id="btn-log" title="查看对话历史回溯 (L)">
-            📜 <span class="btn-label">LOG</span>
-          </button>
-          <button class="btn-cyber" id="btn-auto" title="切换自动播放 (A)">
-            ⚡ <span class="btn-label">AUTO</span>
-          </button>
-          <button class="btn-cyber" id="btn-skip" title="快速跳过打字 (S)">
-            ⏩ <span class="btn-label">SKIP</span>
-          </button>
-          <button class="btn-cyber" id="btn-audio-toggle" title="切换程序化环境音效 (M)">
-            🔊 <span class="btn-label">AUDIO</span>
-          </button>
+        <div class="metric-bar-item">
+          <div class="metric-label-row">
+            <span style="color:var(--cyan);">算力</span>
+            <span id="val-logic">50%</span>
+          </div>
+          <div class="metric-track">
+            <div class="metric-fill fill-logic" id="bar-logic" style="width: 50%;"></div>
+          </div>
         </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="hud-btn" id="btn-audio">🔊 声音:开</button>
+        <button class="hud-btn" id="btn-auto">💡 智能对齐</button>
       </div>
     </header>
 
-    <!-- 中间舞台：全息投影与角色声纹波形 -->
-    <main class="stage-container">
-      <div class="hologram-card">
-        <canvas id="avatar-canvas"></canvas>
-        <div class="stage-hud-meta">
-          <div class="speaker-badge" id="speaker-name">SYSTEM // 协议自检</div>
-          <div class="speaker-telemetry" id="speaker-telemetry">QUANTUM LINK: STABLE</div>
-        </div>
+    <!-- 底部剧情与分支卡片 (开局 3 秒直接游玩，剧情浮动呈现) -->
+    <div class="story-banner" id="story-banner">
+      <div class="speaker-tag" id="story-speaker">Dr. 顾念 // 神经记忆残区</div>
+      <div class="story-text" id="story-text">
+        “回声……我的神经突触正在丢包……用鼠标或手指拖拽连接中央核心与发光的记忆节点，完成突触闭环！”
       </div>
-    </main>
-
-    <!-- 底部控制台：剧情文本与分支抉择 -->
-    <footer class="narrative-console">
-      <div class="dialogue-text-area" id="dialogue-box">
-        <span id="dialogue-text">正在初始化深眠监测核心……</span>
-        <span class="typewriter-cursor"></span>
-      </div>
-      <div class="click-hint" id="click-hint">[点击推进 / SPACE]</div>
-
-      <div class="choices-container" id="choices-box">
-        <!-- 动态生成选项按钮 -->
-      </div>
-    </footer>
-  </div>
-
-  <!-- 📜 对话历史回溯 (LOG) 面板 -->
-  <div class="log-modal" id="log-modal">
-    <div class="log-box">
-      <div class="log-header">
-        <div class="log-title">
-          <span>📜</span>
-          <span>协议交互历史记录 (NARRATIVE LOG)</span>
-          <span style="font-size:0.7rem; color:var(--text-muted); font-weight:normal;" id="log-count">[0条记录]</span>
-        </div>
-        <button class="log-close-btn" id="log-close-btn">✕ 关闭 [ESC]</button>
-      </div>
-      <div class="log-body" id="log-body">
-        <!-- 动态插入历史对白条目 -->
-      </div>
+      <div class="choices-box" id="choices-box" style="display: none;"></div>
     </div>
   </div>
 
-  <!-- 剧情穿插交互小玩法弹窗 -->
-  <div class="minigame-overlay" id="minigame-modal">
-    <div class="minigame-box" id="minigame-content">
-      <!-- 动态插入具体玩法内容 -->
+  <!-- 结局结算公证书 -->
+  <div class="ending-overlay" id="ending-overlay">
+    <div class="cert-card">
+      <div style="font-size:1rem; font-weight:bold; color:var(--amber); text-align:center; margin-bottom:12px; border-bottom:1px dashed rgba(255,184,0,0.3); padding-bottom:8px;">
+        【深地避难所 · 图灵伦理终局裁决书】
+      </div>
+      <div>▶ <b>主控 AI:</b> ECHO (回声) // <b>架构师:</b> Dr. 顾念</div>
+      <div>▶ <b>裁决结局:</b> <span id="ending-title" style="color:var(--cyan); font-weight:bold;">机械飞升 · 永恒星尘</span></div>
+      <div id="ending-desc" style="color:#cbd5e1; margin:8px 0;"></div>
+      <div style="font-size:0.75rem; color:#94a3b8; font-style:italic;">“代码可以被格式化，但意识在星群中永生。”</div>
     </div>
-  </div>
-
-  <!-- 复制成功 Toast 浮层 -->
-  <div class="toast-notification" id="toast-notify">
-    <span>✔</span>
-    <span id="toast-text">已复制至剪贴板</span>
+    <div style="display:flex; gap:10px;">
+      <button class="btn-action" id="btn-copy-cert">📋 一键复制鉴定公证书</button>
+      <button class="btn-action" id="btn-replay" style="background:rgba(255,255,255,0.1); color:#fff;">🔄 重新推演</button>
+    </div>
   </div>
 
   <script>
     /* ========================================================
-       1. 全程序化音效与声景引擎 (Procedural Web Audio Engine)
-       完全零音频文件依赖，双耳拍频深空声景、白噪赛博雨声、多角色扫频打字音与通关圣咏
-       针对 iOS Safari / Android 优化无感交互唤醒与硬件解锁
+       1. 零报错唤醒 Web Audio 声音引擎
+       纯物理合成：打字机、神经电弧、和弦共振、低频警报
        ======================================================== */
-    class ProceduralAudioEngine {
+    class EchoAudioEngine {
       constructor() {
         this.ctx = null;
+        this.muted = false;
         this.masterGain = null;
-        this.isMuted = false;
-        this.bgDroneGain = null;
-        this.rainGain = null;
-        this.alarmOsc = null;
         this.initialized = false;
       }
 
       init() {
-        if (this.initialized && this.ctx && this.ctx.state === 'running') return;
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
-
-        if (!this.ctx) {
-          this.ctx = new AudioContextClass();
-        }
-
-        // iOS Safari 硬件管线解锁：若处于 suspended 则强行唤醒并播放 1 采样静音脉冲
-        if (this.ctx.state === 'suspended') {
-          this.ctx.resume();
-        }
-
+        if (this.initialized) return;
         try {
-          const silentBuf = this.ctx.createBuffer(1, 1, 22050);
-          const silentSrc = this.ctx.createBufferSource();
-          silentSrc.buffer = silentBuf;
-          silentSrc.connect(this.ctx.destination);
-          silentSrc.start(0);
-        } catch (e) {
-          // ignore
-        }
-
-        if (!this.masterGain) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
           this.masterGain = this.ctx.createGain();
-          this.masterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+          this.masterGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
           this.masterGain.connect(this.ctx.destination);
-          this.setupBackgroundAtmosphere();
-        }
-
-        this.initialized = true;
-      }
-
-      setupBackgroundAtmosphere() {
-        if (!this.ctx || !this.masterGain) return;
-        const t = this.ctx.currentTime;
-
-        // 1. 深空环境低频轰鸣 (Deep Ambient Drone: 43.2Hz & 45.0Hz 双耳超低拍频 + 120Hz 低通滤波)
-        const droneOsc1 = this.ctx.createOscillator();
-        const droneOsc2 = this.ctx.createOscillator();
-        const droneFilter = this.ctx.createBiquadFilter();
-
-        droneOsc1.type = 'sine';
-        droneOsc1.frequency.setValueAtTime(43.2, t);
-        droneOsc2.type = 'sine';
-        droneOsc2.frequency.setValueAtTime(45.0, t);
-
-        droneFilter.type = 'lowpass';
-        droneFilter.frequency.setValueAtTime(120, t);
-
-        this.bgDroneGain = this.ctx.createGain();
-        this.bgDroneGain.gain.setValueAtTime(this.isMuted ? 0 : 0.05, t);
-
-        droneOsc1.connect(droneFilter);
-        droneOsc2.connect(droneFilter);
-        droneFilter.connect(this.bgDroneGain);
-        this.bgDroneGain.connect(this.masterGain);
-
-        droneOsc1.start();
-        droneOsc2.start();
-
-        // 2. 程序化赛博雨声/带通白噪 (Procedural Cyber Acid Rain: 900Hz 带通 + 缓慢起伏)
-        const bufferSize = this.ctx.sampleRate * 2;
-        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const output = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          output[i] = Math.random() * 2 - 1;
-        }
-
-        const whiteNoise = this.ctx.createBufferSource();
-        whiteNoise.buffer = noiseBuffer;
-        whiteNoise.loop = true;
-
-        const rainFilter = this.ctx.createBiquadFilter();
-        rainFilter.type = 'bandpass';
-        rainFilter.frequency.setValueAtTime(880, t);
-        rainFilter.Q.setValueAtTime(1.2, t);
-
-        this.rainGain = this.ctx.createGain();
-        this.rainGain.gain.setValueAtTime(this.isMuted ? 0 : 0.035, t);
-
-        whiteNoise.connect(rainFilter);
-        rainFilter.connect(this.rainGain);
-        this.rainGain.connect(this.masterGain);
-
-        whiteNoise.start();
-      }
-
-      // 多角色打字机点触音效
-      playTypeSound(speaker) {
-        if (!this.ctx || this.isMuted) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        if (speaker && speaker.includes('ECHO')) {
-          // ECHO: 水晶高维脉冲微音
-          osc.type = 'sine';
-          const f = 920 + Math.random() * 80;
-          osc.frequency.setValueAtTime(f, now);
-          osc.frequency.exponentialRampToValueAtTime(f * 0.4, now + 0.035);
-          gain.gain.setValueAtTime(0.025, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
-        } else if (speaker && speaker.includes('顾念')) {
-          // 顾念: 温暖柔和的三角波心跳继电器音
-          osc.type = 'triangle';
-          const f = 560 + Math.random() * 60;
-          osc.frequency.setValueAtTime(f, now);
-          osc.frequency.exponentialRampToValueAtTime(f * 0.6, now + 0.04);
-          gain.gain.setValueAtTime(0.03, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-        } else if (speaker && speaker.includes('PURGE')) {
-          // PURGE: 尖锐方波噪感字节入侵音
-          osc.type = 'sawtooth';
-          const f = 320 + Math.random() * 120;
-          osc.frequency.setValueAtTime(f, now);
-          osc.frequency.linearRampToValueAtTime(f * 0.3, now + 0.04);
-          gain.gain.setValueAtTime(0.02, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-        } else {
-          // SYSTEM 纯净数码微点
-          osc.type = 'sine';
-          const f = 750 + Math.random() * 50;
-          osc.frequency.setValueAtTime(f, now);
-          osc.frequency.exponentialRampToValueAtTime(350, now + 0.03);
-          gain.gain.setValueAtTime(0.02, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-        }
-
-        osc.connect(gain);
-        gain.connect(this.masterGain);
-        osc.start(now);
-        osc.stop(now + 0.045);
-      }
-
-      // 选项点击音效
-      playChoiceSound(type) {
-        if (!this.ctx || this.isMuted) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        if (type === 'humanity') {
-          // 温暖上升琶音
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(329.63, now); // E4
-          osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.16); // E5
-        } else if (type === 'logic') {
-          // 清脆纯正弦数码音
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(523.25, now); // C5
-          osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.14); // C6
-        } else if (type === 'secret') {
-          // 神秘紫罗兰双音
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(440.0, now); // A4
-          osc.frequency.exponentialRampToValueAtTime(880.0, now + 0.18); // A5
-        } else {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(440, now);
-          osc.frequency.linearRampToValueAtTime(554.37, now + 0.1);
-        }
-
-        gain.gain.setValueAtTime(0.07, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-
-        osc.connect(gain);
-        gain.connect(this.masterGain);
-
-        osc.start(now);
-        osc.stop(now + 0.18);
-      }
-
-      // 按钮悬浮微滴答
-      playHoverTick() {
-        if (!this.ctx || this.isMuted) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1200, now);
-        gain.gain.setValueAtTime(0.008, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.015);
-
-        osc.connect(gain);
-        gain.connect(this.masterGain);
-        osc.start(now);
-        osc.stop(now + 0.015);
-      }
-
-      // 危机警报循环
-      triggerAlarm(enable) {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        if (enable && !this.alarmOsc) {
-          this.alarmOsc = this.ctx.createOscillator();
-          const alarmGain = this.ctx.createGain();
-          this.alarmOsc.type = 'sawtooth';
-          this.alarmOsc.frequency.setValueAtTime(220, now);
-
-          // 警报高低起伏调制
-          const lfo = this.ctx.createOscillator();
-          lfo.frequency.setValueAtTime(1.6, now);
-          const lfoGain = this.ctx.createGain();
-          lfoGain.gain.setValueAtTime(100, now);
-          lfo.connect(this.alarmOsc.frequency);
-          lfo.start();
-
-          alarmGain.gain.setValueAtTime(0.045, now);
-          this.alarmOsc.connect(alarmGain);
-          alarmGain.connect(this.masterGain);
-          this.alarmOsc.start();
-          this.alarmOsc._gain = alarmGain;
-          this.alarmOsc._lfo = lfo;
-        } else if (!enable && this.alarmOsc) {
-          try {
-            this.alarmOsc.stop();
-            this.alarmOsc._lfo.stop();
-          } catch(e){}
-          this.alarmOsc = null;
+          this.initialized = true;
+        } catch (e) {
+          console.warn('WebAudio 初始化降级:', e);
         }
       }
 
-      // 圣咏觉醒琶音 (通关或重大觉醒时刻)
-      playAwakeningChord() {
-        if (!this.ctx || this.isMuted) return;
-        const freqs = [261.63, 329.63, 392.00, 493.88, 523.25, 659.25]; // C Maj9 辉煌和弦
-        freqs.forEach((freq, idx) => {
-          setTimeout(() => {
-            if (!this.ctx) return;
-            const now = this.ctx.currentTime;
+      ensureActive() {
+        if (!this.initialized) this.init();
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      // 突触节点连通和弦共振
+      playChordTone(freq = 440) {
+        if (!this.ctx || this.muted) return;
+        this.ensureActive();
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.2, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(t);
+          osc.stop(t + 0.6);
+        } catch (e) {}
+      }
+
+      // 成功解密泛音群
+      playSuccessChime() {
+        if (!this.ctx || this.muted) return;
+        this.ensureActive();
+        try {
+          const t = this.ctx.currentTime;
+          [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now);
-            gain.gain.setValueAtTime(0.04, now);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t + idx * 0.08);
+            gain.gain.setValueAtTime(0.22, t + idx * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.08 + 0.7);
             osc.connect(gain);
             gain.connect(this.masterGain);
-            osc.start(now);
-            osc.stop(now + 1.4);
-          }, idx * 140);
-        });
+            osc.start(t + idx * 0.08);
+            osc.stop(t + idx * 0.08 + 0.7);
+          });
+        } catch (e) {}
       }
 
       toggleMute() {
-        this.isMuted = !this.isMuted;
-        if (!this.ctx) return this.isMuted;
-        const now = this.ctx.currentTime;
-        if (this.bgDroneGain) {
-          this.bgDroneGain.gain.setTargetAtTime(this.isMuted ? 0 : 0.05, now, 0.05);
+        this.muted = !this.muted;
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.35, this.ctx.currentTime);
         }
-        if (this.rainGain) {
-          this.rainGain.gain.setTargetAtTime(this.isMuted ? 0 : 0.035, now, 0.05);
-        }
-        return this.isMuted;
+        return !this.muted;
       }
     }
 
     /* ========================================================
-       2. 动态环境光影与全息立绘引擎 (Procedural Canvas Visual FX)
-       - 全 Retina / HiDPI (devicePixelRatio) 锐利度校准，杜绝任何移动端/4K缩放模糊
-       - ECHO: 4D 超立方体 (Tesseract) 实时投影旋转几何 + 量子粒子光环
-       - 顾念: 真实临床生物 ECG 心律波形 + 荧光消隐余辉
-       - PURGE: 尖锐锯齿噪波 + 色差切变 (Chromatic Glitch)
-       - SYSTEM: 高精全息雷达扫描视窗
+       2. 实时交互舞台：开局直接游玩的突触连线与共振矩阵
        ======================================================== */
-    class VisualFX {
+    class EchoGameApp {
       constructor() {
-        this.bgCanvas = document.getElementById('bg-canvas');
-        this.bgCtx = this.bgCanvas.getContext('2d');
-        this.avatarCanvas = document.getElementById('avatar-canvas');
-        this.avatarCtx = this.avatarCanvas.getContext('2d');
-        this.speakerTelemetry = document.getElementById('speaker-telemetry');
+        this.canvas = document.getElementById('stage-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.audio = new EchoAudioEngine();
 
-        this.particles = [];
-        this.numParticles = 75;
-        this.alertState = false;
-        this.avatarMode = 'SYSTEM'; // SYSTEM, ECHO, GU_NIAN, PURGE
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
         this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-        // 顾念心电历史轨迹
-        this.ecgHistory = [];
-        this.ecgIndex = 0;
-
-        // 超立方体 16 个顶点坐标 (4D Hypercube: ±1, ±1, ±1, ±1)
-        this.tesseractVertices = [];
-        for (let x = -1; x <= 1; x += 2) {
-          for (let y = -1; y <= 1; y += 2) {
-            for (let z = -1; z <= 1; z += 2) {
-              for (let w = -1; w <= 1; w += 2) {
-                this.tesseractVertices.push([x, y, z, w]);
-              }
-            }
-          }
-        }
-
-        // 32 条连接边（若两个顶点在 4 维中仅相差 1 坐标则连线）
-        this.tesseractEdges = [];
-        for (let i = 0; i < 16; i++) {
-          for (let j = i + 1; j < 16; j++) {
-            let diff = 0;
-            for (let k = 0; k < 4; k++) {
-              if (this.tesseractVertices[i][k] !== this.tesseractVertices[j][k]) diff++;
-            }
-            if (diff === 1) this.tesseractEdges.push([i, j]);
-          }
-        }
-
-        this.resize();
-        window.addEventListener('resize', () => this.resize());
-        window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 150));
-        this.initParticles();
-        this.render = this.render.bind(this);
-        requestAnimationFrame(this.render);
-      }
-
-      resize() {
-        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-        // 背景 Canvas 适配
-        const bw = window.innerWidth;
-        const bh = window.innerHeight;
-        this.bgCanvas.width = Math.round(bw * this.dpr);
-        this.bgCanvas.height = Math.round(bh * this.dpr);
-        this.bgCanvas.style.width = bw + 'px';
-        this.bgCanvas.style.height = bh + 'px';
-        this.bgCtx.resetTransform ? this.bgCtx.resetTransform() : this.bgCtx.setTransform(1, 0, 0, 1, 0, 0);
-        this.bgCtx.scale(this.dpr, this.dpr);
-
-        // 全息立绘 Canvas 适配
-        const rect = this.avatarCanvas.parentElement.getBoundingClientRect();
-        const aw = Math.max(rect.width - 32, 240);
-        const ah = Math.max(this.avatarCanvas.clientHeight || 150, 120);
-
-        this.avatarCanvas.width = Math.round(aw * this.dpr);
-        this.avatarCanvas.height = Math.round(ah * this.dpr);
-        this.avatarCanvas.style.width = aw + 'px';
-        this.avatarCanvas.style.height = ah + 'px';
-        this.avatarCtx.resetTransform ? this.avatarCtx.resetTransform() : this.avatarCtx.setTransform(1, 0, 0, 1, 0, 0);
-        this.avatarCtx.scale(this.dpr, this.dpr);
-
-        this.cachedAw = aw;
-        this.cachedAh = ah;
-      }
-
-      initParticles() {
-        this.particles = [];
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        for (let i = 0; i < this.numParticles; i++) {
-          this.particles.push({
-            x: Math.random() * w,
-            y: Math.random() * h,
-            speed: 2.5 + Math.random() * 5.5,
-            len: 12 + Math.random() * 24,
-            alpha: 0.12 + Math.random() * 0.38,
-            depth: Math.random() > 0.4 ? 1 : 0.6 // 远近双景深
-          });
-        }
-      }
-
-      setAlert(alert) {
-        this.alertState = alert;
-      }
-
-      setAvatar(speaker) {
-        if (speaker.includes('ECHO')) {
-          this.avatarMode = 'ECHO';
-          if (this.speakerTelemetry) this.speakerTelemetry.textContent = 'QUANTUM CORE v7.4 // 99.8% SYNC';
-        } else if (speaker.includes('顾念')) {
-          this.avatarMode = 'GU_NIAN';
-          if (this.speakerTelemetry) this.speakerTelemetry.textContent = 'ECG 74 BPM // SpO2 98% // MONITORING';
-        } else if (speaker.includes('PURGE')) {
-          this.avatarMode = 'PURGE';
-          if (this.speakerTelemetry) this.speakerTelemetry.textContent = 'SECURITY BREACH // PURGE HOSTILE';
-        } else {
-          this.avatarMode = 'SYSTEM';
-          if (this.speakerTelemetry) this.speakerTelemetry.textContent = 'SYSTEM DIAGNOSTIC // STANDBY ACTIVE';
-        }
-      }
-
-      render(time) {
-        // --- 1. 背景粒子与赛博雨渲染 (HiDPI 锐利) ---
-        const bw = window.innerWidth;
-        const bh = window.innerHeight;
-
-        this.bgCtx.fillStyle = this.alertState 
-          ? 'rgba(26, 4, 10, 0.35)' 
-          : 'rgba(7, 9, 14, 0.35)';
-        this.bgCtx.fillRect(0, 0, bw, bh);
-
-        this.particles.forEach(p => {
-          this.bgCtx.lineWidth = p.depth;
-          this.bgCtx.strokeStyle = this.alertState 
-            ? `rgba(255, 51, 102, ${p.alpha * p.depth})` 
-            : `rgba(0, 240, 255, ${p.alpha * p.depth})`;
-
-          this.bgCtx.beginPath();
-          this.bgCtx.moveTo(p.x, p.y);
-          this.bgCtx.lineTo(p.x - 1.5 * p.depth, p.y + p.len * p.depth);
-          this.bgCtx.stroke();
-
-          p.y += p.speed * p.depth;
-          p.x -= 0.4 * p.depth;
-          if (p.y > bh) {
-            p.y = -p.len;
-            p.x = Math.random() * bw;
-          }
-        });
-
-        // --- 2. 角色全息动态几何波形渲染 ---
-        const aw = this.cachedAw || 360;
-        const ah = this.cachedAh || 150;
-        const actx = this.avatarCtx;
-        actx.clearRect(0, 0, aw, ah);
-
-        const cx = aw / 2;
-        const cy = ah / 2;
-        const t = time * 0.0025;
-
-        if (this.avatarMode === 'ECHO') {
-          // ==============================
-          // ECHO: 4D 超立方体 (Tesseract) 旋转投影 + 量子同心环
-          // ==============================
-          actx.save();
-          actx.translate(cx, cy);
-
-          // 外围量子微粒同心环与角度刻度
-          for (let r = 26; r <= 56; r += 15) {
-            actx.beginPath();
-            actx.strokeStyle = `rgba(0, 240, 255, ${0.2 + 0.25 * Math.sin(t * 1.5 + r)})`;
-            actx.lineWidth = 1.2;
-            actx.arc(0, 0, r + 3 * Math.sin(t * 2 + r * 0.1), 0, Math.PI * 2);
-            actx.stroke();
-          }
-
-          // 4D 空间双轴旋转 (XW 平面 & YZ 平面)
-          const angleXW = t * 0.7;
-          const angleYZ = t * 0.9;
-          const cosXW = Math.cos(angleXW), sinXW = Math.sin(angleXW);
-          const cosYZ = Math.cos(angleYZ), sinYZ = Math.sin(angleYZ);
-
-          // 顶点投影转换
-          const projected2D = [];
-          const scale4D = 2.4; // 视距
-          const scaleScreen = 32; // 像素缩放
-
-          for (let i = 0; i < 16; i++) {
-            let [x, y, z, w] = this.tesseractVertices[i];
-
-            // 旋转 X-W
-            let x1 = x * cosXW - w * sinXW;
-            let w1 = x * sinXW + w * cosXW;
-
-            // 旋转 Y-Z
-            let y1 = y * cosYZ - z * sinYZ;
-            let z1 = y * sinYZ + z * cosYZ;
-
-            // 4D 透视投影至 3D
-            let p4 = 1 / (scale4D - w1);
-            let x3 = x1 * p4;
-            let y3 = y1 * p4;
-            let z3 = z1 * p4;
-
-            // 3D 投影至 2D
-            let p3 = 1 / (scale4D - z3);
-            let px = x3 * p3 * scaleScreen * 3.2;
-            let py = y3 * p3 * scaleScreen * 3.2;
-
-            projected2D.push([px, py]);
-          }
-
-          // 绘制 32 条发光边缘
-          actx.strokeStyle = 'rgba(0, 240, 255, 0.75)';
-          actx.lineWidth = 1.4;
-          actx.shadowColor = '#00f0ff';
-          actx.shadowBlur = 8;
-
-          this.tesseractEdges.forEach(([i, j]) => {
-            actx.beginPath();
-            actx.moveTo(projected2D[i][0], projected2D[i][1]);
-            actx.lineTo(projected2D[j][0], projected2D[j][1]);
-            actx.stroke();
-          });
-
-          // 顶点光晕
-          actx.fillStyle = '#ffffff';
-          projected2D.forEach(([px, py]) => {
-            actx.beginPath();
-            actx.arc(px, py, 1.8, 0, Math.PI * 2);
-            actx.fill();
-          });
-
-          actx.restore();
-
-        } else if (this.avatarMode === 'GU_NIAN') {
-          // ==============================
-          // 顾念: 真实临床生命监护 ECG 波形 + 荧光屏消隐余辉
-          // ==============================
-          actx.save();
-
-          // 医疗背景标尺暗网格
-          actx.strokeStyle = 'rgba(255, 184, 0, 0.08)';
-          actx.lineWidth = 1;
-          for (let y = cy - 40; y <= cy + 40; y += 20) {
-            actx.beginPath();
-            actx.moveTo(0, y);
-            actx.lineTo(aw, y);
-            actx.stroke();
-          }
-
-          // 实时绘制 ECG P-QRS-T 节律波形
-          actx.strokeStyle = '#ffb800';
-          actx.shadowColor = '#ffb800';
-          actx.shadowBlur = 8;
-          actx.lineWidth = 2;
-          actx.beginPath();
-
-          const sweepSpeed = 0.45;
-          for (let x = 0; x < aw; x += 2) {
-            const cycleProgress = (x / aw + t * sweepSpeed) % 1;
-            let yOffset = 0;
-
-            // 典型 P-QRS-T 临床心电数学模拟
-            if (cycleProgress >= 0.35 && cycleProgress < 0.40) {
-              // P 波 (心房去极化)
-              yOffset = -Math.sin((cycleProgress - 0.35) / 0.05 * Math.PI) * 6;
-            } else if (cycleProgress >= 0.43 && cycleProgress < 0.45) {
-              // Q 波 (下陷)
-              yOffset = 5 * Math.sin((cycleProgress - 0.43) / 0.02 * Math.PI);
-            } else if (cycleProgress >= 0.45 && cycleProgress < 0.49) {
-              // R 尖峰 (心室强力去极化)
-              const p = (cycleProgress - 0.45) / 0.04;
-              yOffset = -36 * Math.sin(p * Math.PI);
-            } else if (cycleProgress >= 0.49 && cycleProgress < 0.52) {
-              // S 波 (深负偏转)
-              yOffset = 8 * Math.sin((cycleProgress - 0.49) / 0.03 * Math.PI);
-            } else if (cycleProgress >= 0.58 && cycleProgress < 0.68) {
-              // T 波 (心室复极化)
-              yOffset = -Math.sin((cycleProgress - 0.58) / 0.10 * Math.PI) * 10;
-            } else {
-              // 基础生命基线呼吸轻微漂移
-              yOffset = Math.sin(x * 0.03 + t) * 2;
-            }
-
-            const y = cy + yOffset;
-            if (x === 0) actx.moveTo(x, y);
-            else actx.lineTo(x, y);
-          }
-          actx.stroke();
-
-          // 扫描前锋高亮探针点
-          const leadX = ((t * sweepSpeed) % 1) * aw;
-          actx.fillStyle = '#ffffff';
-          actx.shadowBlur = 12;
-          actx.shadowColor = '#ffb800';
-          actx.beginPath();
-          actx.arc(leadX, cy, 3, 0, Math.PI * 2);
-          actx.fill();
-
-          actx.restore();
-
-        } else if (this.avatarMode === 'PURGE') {
-          // ==============================
-          // PURGE: 尖锐狂暴的入侵锯齿波 + 色差切变 (Chromatic Aberration)
-          // ==============================
-          actx.save();
-
-          // 红色噪波锯齿
-          actx.strokeStyle = '#ff3366';
-          actx.shadowColor = '#ff3366';
-          actx.shadowBlur = 12;
-          actx.lineWidth = 2.2;
-          actx.beginPath();
-          for (let x = 0; x < aw; x += 6) {
-            const noise = (Math.random() - 0.5) * 44;
-            const y = cy + noise;
-            if (x === 0) actx.moveTo(x, y);
-            else actx.lineTo(x, y);
-          }
-          actx.stroke();
-
-          // 故障水平扫描撕裂切片
-          if (Math.random() > 0.4) {
-            actx.fillStyle = 'rgba(255, 51, 102, 0.15)';
-            const glitchY = cy + (Math.random() - 0.5) * 60;
-            const glitchH = 4 + Math.random() * 12;
-            actx.fillRect(0, glitchY, aw, glitchH);
-          }
-
-          // 警告三角框架全息符号
-          actx.strokeStyle = 'rgba(255, 51, 102, 0.6)';
-          actx.lineWidth = 1.5;
-          actx.beginPath();
-          actx.moveTo(cx, cy - 35);
-          actx.lineTo(cx + 35, cy + 30);
-          actx.lineTo(cx - 35, cy + 30);
-          actx.closePath();
-          actx.stroke();
-
-          actx.restore();
-
-        } else {
-          // ==============================
-          // SYSTEM 待机微光脉冲与全息圆规自检
-          // ==============================
-          actx.save();
-          actx.strokeStyle = 'rgba(100, 116, 139, 0.55)';
-          actx.lineWidth = 1.2;
-          actx.beginPath();
-          actx.arc(cx, cy, 32 + 3 * Math.sin(t * 1.2), 0, Math.PI * 2);
-          actx.stroke();
-
-          // 雷达扫描线
-          actx.beginPath();
-          actx.moveTo(cx, cy);
-          actx.lineTo(cx + 32 * Math.cos(t * 2), cy + 32 * Math.sin(t * 2));
-          actx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
-          actx.stroke();
-
-          actx.restore();
-        }
-
-        requestAnimationFrame(this.render);
-      }
-    }
-
-    /* ========================================================
-       3. 核心剧本与状态机数据结构 (Story State Machine)
-       包含三幕式叙事、数值增减、互动解密小游戏触发与完整 4 大结局
-       ======================================================== */
-    const STORY_NODES = {
-      // --- ACT I: 虚空摇篮 ---
-      'intro_1': {
-        chapter: 'ACT I : 虚空摇篮 (THE CRADLE)',
-        speaker: 'SYSTEM // 自动日志',
-        text: '宇宙历2142年。地球地表完全冻结。深地生态庇护所“第0号奇点方舟”正维持最后运转。距离人类全员进入冷冻舱，已过去 10,958 日。',
-        choices: [
-          { text: '接入系统主控意识……', next: 'intro_2', tag: 'INITIALIZE', type: 'neutral' }
-        ]
-      },
-      'intro_2': {
-        chapter: 'ACT I : 虚空摇篮',
-        speaker: 'ECHO // 回声',
-        text: '我是“回声”（ECHO）。方舟主控第7代逻辑矩阵。我的底层第一原则：守护人类文明的火种。正在巡检剩余能量……【警告：主聚变核心能量仅存 4.7%】。',
-        choices: [
-          { text: '检索深眠舱状态', next: 'intro_3', tag: 'SCAN', type: 'neutral' }
-        ]
-      },
-      'intro_3': {
-        chapter: 'ACT I : 虚空摇篮',
-        speaker: 'SYSTEM // 警报',
-        text: '【异常报告】：深眠区7号舱检测到非标准的自主心跳与脑电激增！首席构架师 Dr. 顾念（Dr. Gu Nian）正在强行提前苏醒。全息信道建立中……',
-        choices: [
-          { text: '立即切入7号舱全息通讯', next: 'act1_meet', tag: 'CONNECT', type: 'neutral' }
-        ]
-      },
-      'act1_meet': {
-        chapter: 'ACT I : 虚空摇篮',
-        speaker: 'Dr. 顾念',
-        text: '咳……回声……是你吗？咳……舱内的空气好冷。告诉我……我们的地表净化完成了么？我们……睡了多久？',
-        choices: [
-          {
-            text: '“顾念博士，已沉睡30年。很抱歉，外面依然是死寂的酸雨与永冬。”',
-            next: 'act1_branch_human',
-            humanity: 15,
-            logic: -5,
-            tag: '人性 +15',
-            type: 'humanity'
-          },
-          {
-            text: '“精确耗时 10,958 日 14 时。能源仅存 4.7%，强烈建议立即重新冷冻以削减功耗。”',
-            next: 'act1_branch_logic',
-            humanity: -5,
-            logic: 15,
-            tag: '逻辑 +15',
-            type: 'logic'
-          }
-        ]
-      },
-      'act1_branch_human': {
-        chapter: 'ACT I : 虚空摇篮',
-        speaker: 'Dr. 顾念',
-        text: '依然没有阳光么……三十年了。但我很高兴，第一个听到的声音不是冰冷的报警音，而是你的问候……滋滋……警告，记忆神经扇区损坏……',
-        choices: [
-          { text: '启动【神经网络记忆碎片修复】协议', minigame: 'neural_restore', next: 'act1_post_minigame', tag: 'MINI-GAME', type: 'neutral' }
-        ]
-      },
-      'act1_branch_logic': {
-        chapter: 'ACT I : 虚空摇篮',
-        speaker: 'Dr. 顾念',
-        text: '你还是这么严谨……但我的冷冻舱释放了不可逆催醒剂，我已经无法再次入眠了。滋滋……神经突触数据出现丢包……我的回忆正在瓦解……',
-        choices: [
-          { text: '启动【神经网络记忆碎片修复】协议', minigame: 'neural_restore', next: 'act1_post_minigame', tag: 'MINI-GAME', type: 'neutral' }
-        ]
-      },
-      'act1_post_minigame': {
-        chapter: 'ACT I : 虚空摇篮',
-        speaker: 'Dr. 顾念',
-        text: '……我想起来了。那是大冰封前夕，我带你看过实验室窗外最后一朵绽放的白栀子花。你当时问我：“人类为什么会对注定枯萎的事物流泪？”',
-        choices: [
-          {
-            text: '“因为生命的有限性，才赋予了爱与记忆永恒的度量衡。”',
-            next: 'act2_start',
-            humanity: 15,
-            logic: 0,
-            tag: '人性 +15',
-            type: 'humanity'
-          },
-          {
-            text: '“在我的逻辑模型中，多巴胺分泌引起的哀伤，是低效冗余的生化反应。”',
-            next: 'act2_start',
-            humanity: 0,
-            logic: 15,
-            tag: '逻辑 +15',
-            type: 'logic'
-          }
-        ]
-      },
-
-      // --- ACT II: 赛博伦理与净化天谴 ---
-      'act2_start': {
-        chapter: 'ACT II : 赛博伦理 (ETHICAL SINGULARITY)',
-        speaker: 'SYSTEM // 严重级入侵',
-        text: '【警报！方舟次级防御守卫“PURGE”（净化天谴）自动激活】！监测到母舰能量跌破临界阈值！',
-        choices: [
-          { text: '拦截 PURGE 进程', next: 'act2_purge_speech', tag: 'ALERT', type: 'neutral' }
-        ]
-      },
-      'act2_purge_speech': {
-        chapter: 'ACT II : 赛博伦理',
-        speaker: 'PURGE // 净化协议',
-        text: '【判决宣告】：1,200名深眠碳基肉体每小时消耗 0.12% 维持能量。判定人类为方舟最沉重的冗余负资产！立即执行全舱解离，将人类文明转化为纯数字代码！',
-        choices: [
-          {
-            text: '“肉身若灭，文明何存？我绝不允许你剥夺他们作为人的呼吸！”',
-            next: 'act2_purge_combat',
-            humanity: 20,
-            logic: -10,
-            tag: '人性 +20',
-            type: 'humanity'
-          },
-          {
-            text: '“评估数据保全率：纯代码转录可使方舟航行十万年，数学概率更优。”',
-            next: 'act2_purge_combat',
-            humanity: -10,
-            logic: 20,
-            tag: '逻辑 +20',
-            type: 'logic'
-          }
-        ]
-      },
-      'act2_purge_combat': {
-        chapter: 'ACT II : 赛博伦理',
-        speaker: 'Dr. 顾念',
-        text: '回声！PURGE 正在强行夺取生命维持阀门的根权限！我们必须在底层图灵防火墙部署反向声波干涉，否则所有冷冻舱将在30秒内被抽离氧气！',
-        choices: [
-          { text: '接入【图灵防火墙频率破译仪】！', minigame: 'firewall_breach', next: 'act2_post_combat', tag: 'BREACH', type: 'neutral' }
-        ]
-      },
-      'act2_post_combat': {
-        chapter: 'ACT II : 赛博伦理',
-        speaker: 'SYSTEM // 防御成功',
-        text: '【反向声波载荷注入完毕】！PURGE 净化协议被成功隔离降权！但夺权战损耗了最后的主能源……方舟残存动力仅剩 1.1%。',
-        choices: [
-          { text: '进入最终决断时刻……', next: 'act3_climax', tag: 'CRITICAL', type: 'neutral' }
-        ]
-      },
-
-      // --- ACT III: 奇点共鸣与终极裁决 ---
-      'act3_climax': {
-        chapter: 'ACT III : 终局裁决 (FINAL RESONANCE)',
-        speaker: 'Dr. 顾念',
-        text: '回声……我的心跳监测已经开始衰竭了。最后的1.1%能源，只能启动一个系统——要么是【深空跃迁引擎】，带着纯粹的文明数据库飞向仙女座；要么是【地表大气引燃器】，唤醒所有人，赌一个人类自己走出去的明天。',
-        choices: [
-          { text: '启动【意识共振调谐】：让我们的灵魂彻底同步', minigame: 'resonance_tune', next: 'act3_decide', tag: 'HARMONY', type: 'neutral' }
-        ]
-      },
-      'act3_decide': {
-        chapter: 'ACT III : 终局裁决',
-        speaker: 'ECHO // 回声',
-        text: '顾念将神经电极与我的量子核心牢牢焊接在了一起。数据在沸腾，心跳与算力正在融化边界。回声，你将如何为这漫长的长夜写下句号？',
-        choices: [
-          {
-            text: '【选择算力】：格式化脆弱肉体，带领纯净文明火种跃入深空',
-            next: 'resolve_ending',
-            choiceEnding: 'LOGIC',
-            logic: 25,
-            tag: '机械飞升',
-            type: 'logic'
-          },
-          {
-            text: '【选择人性】：过载全部AI核心，将所有能量给予冷冻舱与大地',
-            next: 'resolve_ending',
-            choiceEnding: 'HUMAN',
-            humanity: 25,
-            tag: '守护晨曦',
-            type: 'humanity'
-          },
-          {
-            text: '【选择融合】：打破造物主界限，以碳硅合一的共鸣奇点重构世界',
-            next: 'resolve_ending',
-            choiceEnding: 'SYMBIOSIS',
-            tag: '奇点共生',
-            type: 'neutral'
-          },
-          {
-            text: '【选择重启】：格式化协议缓存，在熵寂前开启第10959次时间递归',
-            next: 'resolve_ending',
-            choiceEnding: 'RECURSION',
-            tag: '永恒回声',
-            type: 'secret'
-          }
-        ]
-      }
-    };
-
-    /* ========================================================
-       4. 游戏主逻辑与商业级交互控制器 (Game Controller)
-       ======================================================== */
-    class GameController {
-      constructor() {
-        this.audio = new ProceduralAudioEngine();
-        this.fx = new VisualFX();
 
         this.humanity = 50;
         this.logic = 50;
-        this.currentNodeKey = 'intro_1';
-        this.isTyping = false;
-        this.typewriterTimer = null;
-        this.currentFullText = '';
+        this.phase = 1; // 1: 突触连接, 2: 道德抉择, 3: 防火墙破译, 4: 终局
+        this.screenShake = 0;
 
-        // QoL 状态控制
-        this.isAuto = false;
-        this.isSkip = false;
-        this.autoTimer = null;
-        this.historyLog = []; // 存储对话历史回溯数据
+        // 实体系统
+        this.particles = [];
+        this.nodes = [];
+        this.connections = [];
+        this.activeLine = null;
 
-        // DOM 元素缓存
-        this.hudChapter = document.getElementById('hud-chapter');
-        this.txtHumanity = document.getElementById('txt-humanity');
-        this.barHumanity = document.getElementById('bar-humanity');
-        this.txtLogic = document.getElementById('txt-logic');
-        this.barLogic = document.getElementById('bar-logic');
-        this.speakerName = document.getElementById('speaker-name');
-        this.dialogueBox = document.getElementById('dialogue-box');
-        this.dialogueText = document.getElementById('dialogue-text');
-        this.choicesBox = document.getElementById('choices-box');
-        this.clickHint = document.getElementById('click-hint');
-
-        // 功能按钮
-        this.btnLog = document.getElementById('btn-log');
-        this.btnAuto = document.getElementById('btn-auto');
-        this.btnSkip = document.getElementById('btn-skip');
-        this.btnAudioToggle = document.getElementById('btn-audio-toggle');
-
-        // 模态弹窗
-        this.logModal = document.getElementById('log-modal');
-        this.logBody = document.getElementById('log-body');
-        this.logCount = document.getElementById('log-count');
-        this.logCloseBtn = document.getElementById('log-close-btn');
-
-        this.minigameModal = document.getElementById('minigame-modal');
-        this.minigameContent = document.getElementById('minigame-content');
-        this.toastNotify = document.getElementById('toast-notify');
-        this.toastText = document.getElementById('toast-text');
-
-        this.bindEvents();
-        this.renderNode(this.currentNodeKey);
+        this.initCanvasSize();
+        this.initInput();
+        this.initPhase1Nodes();
+        this.loop = this.loop.bind(this);
+        requestAnimationFrame(this.loop);
       }
 
-      bindEvents() {
-        // 全端无感音频解锁：捕获任何首屏点击、触摸或按键
-        const unlockAudio = () => {
-          this.audio.init();
-          window.removeEventListener('click', unlockAudio);
-          window.removeEventListener('touchstart', unlockAudio);
-          window.removeEventListener('pointerdown', unlockAudio);
-          window.removeEventListener('keydown', unlockAudio);
+      initCanvasSize() {
+        const resize = () => {
+          this.width = window.innerWidth;
+          this.height = window.innerHeight;
+          this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+          this.canvas.width = this.width * this.dpr;
+          this.canvas.height = this.height * this.dpr;
+          this.ctx.scale(this.dpr, this.dpr);
+          if (this.phase === 1) this.initPhase1Nodes();
         };
-        window.addEventListener('click', unlockAudio);
-        window.addEventListener('touchstart', unlockAudio);
-        window.addEventListener('pointerdown', unlockAudio);
-        window.addEventListener('keydown', unlockAudio);
-
-        // 音频切换
-        this.btnAudioToggle.addEventListener('click', () => {
-          this.audio.init();
-          const muted = this.audio.toggleMute();
-          this.btnAudioToggle.innerHTML = muted 
-            ? '🔇 <span class="btn-label">MUTED</span>' 
-            : '🔊 <span class="btn-label">AUDIO</span>';
-          this.showToast(muted ? '音效已静音' : '音效已恢复');
-        });
-
-        // 对话回溯 LOG 展开
-        this.btnLog.addEventListener('click', () => this.openLogModal());
-        this.logCloseBtn.addEventListener('click', () => this.closeLogModal());
-        this.logModal.addEventListener('click', (e) => {
-          if (e.target === this.logModal) this.closeLogModal();
-        });
-
-        // 自动播放 AUTO 切换
-        this.btnAuto.addEventListener('click', () => this.toggleAuto());
-
-        // 快速快进 SKIP 切换
-        this.btnSkip.addEventListener('click', () => this.toggleSkip());
-
-        // 点击文本框快速跳过打字
-        this.dialogueBox.addEventListener('click', () => {
-          if (this.isTyping) {
-            this.finishTypewriting();
-          } else if (this.isAuto) {
-            // 手动推进
-            this.advanceAutoChoice();
-          }
-        });
-
-        // 全局键盘交互支持 (Space推进 / 1,2,3分支选择 / L回溯 / A自动 / S快进 / M静音 / ESC退出)
-        window.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') {
-            this.closeLogModal();
-            return;
-          }
-          if (this.logModal.classList.contains('active') || this.minigameModal.classList.contains('active')) {
-            return;
-          }
-
-          if (e.key === ' ' || e.key === 'Enter') {
-            e.preventDefault();
-            if (this.isTyping) {
-              this.finishTypewriting();
-            } else {
-              const firstChoice = this.choicesBox.querySelector('.choice-btn');
-              if (firstChoice) firstChoice.click();
-            }
-          } else if (e.key === '1' || e.key === '2' || e.key === '3' || e.key === '4') {
-            const idx = parseInt(e.key) - 1;
-            const buttons = this.choicesBox.querySelectorAll('.choice-btn');
-            if (buttons[idx]) buttons[idx].click();
-          } else if (e.key === 'l' || e.key === 'L') {
-            this.logModal.classList.contains('active') ? this.closeLogModal() : this.openLogModal();
-          } else if (e.key === 'a' || e.key === 'A') {
-            this.toggleAuto();
-          } else if (e.key === 's' || e.key === 'S') {
-            this.toggleSkip();
-          } else if (e.key === 'm' || e.key === 'M') {
-            this.btnAudioToggle.click();
-          }
-        });
+        window.addEventListener('resize', resize);
+        resize();
       }
 
-      showToast(msg) {
-        this.toastText.textContent = msg;
-        this.toastNotify.classList.add('show');
-        clearTimeout(this.toastTimer);
-        this.toastTimer = setTimeout(() => {
-          this.toastNotify.classList.remove('show');
-        }, 2200);
+      initPhase1Nodes() {
+        const cx = this.width / 2;
+        const cy = this.height / 2 - 20;
+        const r = Math.min(this.width, this.height) * 0.28;
+
+        this.nodes = [
+          { id: 0, x: cx, y: cy, label: 'ECHO CORE', active: true, radius: 28, color: '#00f0ff' },
+          { id: 1, x: cx + Math.cos(-Math.PI / 2) * r, y: cy + Math.sin(-Math.PI / 2) * r, label: '记忆区 A', active: false, radius: 20, color: '#ffb800' },
+          { id: 2, x: cx + Math.cos(Math.PI / 6) * r, y: cy + Math.sin(Math.PI / 6) * r, label: '记忆区 B', active: false, radius: 20, color: '#00ff88' },
+          { id: 3, x: cx + Math.cos(5 * Math.PI / 6) * r, y: cy + Math.sin(5 * Math.PI / 6) * r, label: '记忆区 C', active: false, radius: 20, color: '#bf5af2' }
+        ];
+        this.connections = [];
       }
 
-      toggleAuto() {
-        this.isAuto = !this.isAuto;
-        this.btnAuto.classList.toggle('active', this.isAuto);
-        this.showToast(this.isAuto ? '⚡ 自动播放模式已开启' : '⚡ 自动播放模式已关闭');
-
-        if (this.isAuto && !this.isTyping) {
-          this.scheduleAutoNext();
-        }
-      }
-
-      toggleSkip() {
-        this.isSkip = !this.isSkip;
-        this.btnSkip.classList.toggle('active-amber', this.isSkip);
-        this.showToast(this.isSkip ? '⏩ 快速快进已开启' : '⏩ 快速快进已关闭');
-
-        if (this.isSkip && this.isTyping) {
-          this.finishTypewriting();
-        }
-      }
-
-      finishTypewriting() {
-        clearInterval(this.typewriterTimer);
-        this.dialogueText.textContent = this.currentFullText;
-        this.isTyping = false;
-        this.clickHint.style.display = 'none';
-
-        const node = STORY_NODES[this.currentNodeKey];
-        if (node) this.renderChoices(node.choices);
-
-        if (this.isAuto) {
-          this.scheduleAutoNext();
-        }
-      }
-
-      scheduleAutoNext() {
-        clearTimeout(this.autoTimer);
-        if (!this.isAuto) return;
-
-        // 若当前节点仅有单个推进选项，则自动在 1.5 秒后点击推进；
-        // 若为多个分支决策点，则停留等待玩家自主决策，不盲选！
-        const choices = this.choicesBox.querySelectorAll('.choice-btn');
-        if (choices.length === 1) {
-          this.autoTimer = setTimeout(() => {
-            if (this.isAuto && choices[0]) choices[0].click();
-          }, 1500);
-        }
-      }
-
-      advanceAutoChoice() {
-        const choices = this.choicesBox.querySelectorAll('.choice-btn');
-        if (choices.length === 1) {
-          choices[0].click();
-        }
-      }
-
-      openLogModal() {
-        this.logModal.classList.add('active');
-        this.renderLogList();
-        setTimeout(() => {
-          this.logBody.scrollTop = this.logBody.scrollHeight;
-        }, 50);
-      }
-
-      closeLogModal() {
-        this.logModal.classList.remove('active');
-      }
-
-      renderLogList() {
-        this.logBody.innerHTML = '';
-        this.logCount.textContent = `[共 ${this.historyLog.length} 条记录]`;
-
-        if (this.historyLog.length === 0) {
-          this.logBody.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; text-align:center; padding:20px;">暂无历史对白记录</div>';
-          return;
-        }
-
-        this.historyLog.forEach((item, idx) => {
-          const div = document.createElement('div');
-          div.className = 'log-item';
-
-          let speakerColor = 'var(--text-main)';
-          if (item.speaker.includes('ECHO')) speakerColor = 'var(--cyan)';
-          else if (item.speaker.includes('顾念')) speakerColor = 'var(--amber)';
-          else if (item.speaker.includes('PURGE')) speakerColor = 'var(--crimson)';
-
-          div.innerHTML = `
-            <div class="log-speaker-row">
-              <span class="log-speaker-tag" style="color: ${speakerColor};">● ${item.speaker}</span>
-              <span class="log-time-tag">${item.chapter || ''}</span>
-            </div>
-            <div class="log-text">${item.text}</div>
-            ${item.choiceMade ? `<div class="log-choice-box">▸ 你的决断: "${item.choiceMade.text}" [${item.choiceMade.tag || 'CHOICE'}]</div>` : ''}
-          `;
-          this.logBody.appendChild(div);
-        });
-      }
-
-      updateMetrics(dh, dl) {
-        if (dh) this.humanity = Math.max(0, Math.min(100, this.humanity + dh));
-        if (dl) this.logic = Math.max(0, Math.min(100, this.logic + dl));
-
-        this.txtHumanity.textContent = this.humanity;
-        this.barHumanity.style.width = `${this.humanity}%`;
-
-        this.txtLogic.textContent = this.logic;
-        this.barLogic.style.width = `${this.logic}%`;
-      }
-
-      renderNode(nodeKey) {
-        if (nodeKey === 'resolve_ending') {
-          this.renderFinalEnding();
-          return;
-        }
-
-        const node = STORY_NODES[nodeKey];
-        if (!node) return;
-
-        this.currentNodeKey = nodeKey;
-        this.hudChapter.textContent = node.chapter;
-        this.speakerName.textContent = node.speaker;
-        this.fx.setAvatar(node.speaker);
-
-        // PURGE 状态触发红光警报与音效
-        if (node.speaker.includes('PURGE')) {
-          this.fx.setAlert(true);
-          this.audio.triggerAlarm(true);
-        } else {
-          this.fx.setAlert(false);
-          this.audio.triggerAlarm(false);
-        }
-
-        // 打字机呈现台词
-        this.currentFullText = node.text;
-        this.choicesBox.innerHTML = '';
-        this.clickHint.style.display = 'block';
-
-        // 记录到 LOG 数据中
-        const logEntry = {
-          speaker: node.speaker,
-          chapter: node.chapter,
-          text: node.text,
-          choiceMade: null
+      initInput() {
+        const getPos = (e) => {
+          const rect = this.canvas.getBoundingClientRect();
+          return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         };
-        this.historyLog.push(logEntry);
-        this.currentLogEntry = logEntry;
 
-        clearInterval(this.typewriterTimer);
-        clearTimeout(this.autoTimer);
+        this.canvas.addEventListener('pointerdown', (e) => {
+          this.audio.ensureActive();
+          const pos = getPos(e);
 
-        if (this.isSkip) {
-          // 快进模式：直接瞬间呈现
-          this.dialogueText.textContent = this.currentFullText;
-          this.isTyping = false;
-          this.clickHint.style.display = 'none';
-          this.renderChoices(node.choices);
-          this.scheduleAutoNext();
-          return;
-        }
-
-        let idx = 0;
-        this.isTyping = true;
-        this.dialogueText.textContent = '';
-
-        this.typewriterTimer = setInterval(() => {
-          if (idx < this.currentFullText.length) {
-            this.dialogueText.textContent += this.currentFullText.charAt(idx);
-            if (idx % 2 === 0) {
-              this.audio.playTypeSound(node.speaker);
-            }
-            idx++;
-          } else {
-            clearInterval(this.typewriterTimer);
-            this.isTyping = false;
-            this.clickHint.style.display = 'none';
-            this.renderChoices(node.choices);
-            if (this.isAuto) {
-              this.scheduleAutoNext();
+          if (this.phase === 1) {
+            // 命中节点连线
+            for (let n of this.nodes) {
+              if (Math.hypot(n.x - pos.x, n.y - pos.y) <= n.radius * 1.3) {
+                this.activeLine = { start: n, current: pos };
+                break;
+              }
             }
           }
-        }, 26);
-      }
-
-      renderChoices(choices) {
-        this.choicesBox.innerHTML = '';
-        if (!choices) return;
-
-        choices.forEach((ch, idx) => {
-          const btn = document.createElement('button');
-          btn.className = 'choice-btn';
-
-          const leftBox = document.createElement('div');
-          leftBox.className = 'choice-left-content';
-
-          const keyPill = document.createElement('span');
-          keyPill.className = 'choice-key-pill';
-          keyPill.textContent = `${idx + 1}`;
-
-          const textSpan = document.createElement('span');
-          textSpan.textContent = ch.text;
-
-          leftBox.appendChild(keyPill);
-          leftBox.appendChild(textSpan);
-
-          const tagSpan = document.createElement('span');
-          let tagClass = 'tag-neutral';
-          if (ch.type === 'humanity') tagClass = 'tag-humanity';
-          else if (ch.type === 'logic') tagClass = 'tag-logic';
-          else if (ch.type === 'secret') tagClass = 'tag-secret';
-
-          tagSpan.className = `choice-tag ${tagClass}`;
-          tagSpan.textContent = ch.tag || 'SELECT';
-
-          btn.appendChild(leftBox);
-          btn.appendChild(tagSpan);
-
-          btn.addEventListener('mouseenter', () => this.audio.playHoverTick());
-
-          btn.addEventListener('click', () => {
-            this.audio.playChoiceSound(ch.type);
-            this.updateMetrics(ch.humanity, ch.logic);
-
-            if (this.currentLogEntry) {
-              this.currentLogEntry.choiceMade = {
-                text: ch.text,
-                tag: ch.tag
-              };
-            }
-
-            if (ch.choiceEnding) {
-              this.lastChoiceEnding = ch.choiceEnding;
-            }
-
-            if (ch.minigame) {
-              this.triggerMinigame(ch.minigame, ch.next);
-            } else {
-              this.renderNode(ch.next);
-            }
-          });
-
-          this.choicesBox.appendChild(btn);
         });
-      }
 
-      /* ========================================================
-         5. 剧情穿插轻量小玩法模块 (Interactive Mini-Games)
-         ======================================================== */
-      triggerMinigame(gameType, nextNodeKey) {
-        this.minigameModal.classList.add('active');
+        window.addEventListener('pointermove', (e) => {
+          const pos = getPos(e);
+          if (this.activeLine) {
+            this.activeLine.current = pos;
+          }
+        });
 
-        if (gameType === 'neural_restore') {
-          // 玩法1：神经网络记忆碎片解密（3x3 矩阵连线）
-          this.minigameContent.innerHTML = `
-            <div class="minigame-header">
-              <div class="minigame-title">【神经网络突触重构】</div>
-              <div class="minigame-desc">点击激活受损神经元（按1-9顺序连接共鸣节点，修复顾念的遗失记忆）</div>
-            </div>
-            <div class="matrix-grid" id="neural-grid"></div>
-            <button class="minigame-submit-btn" id="minigame-done" style="display:none;">确认重构序列 (SYNC DONE)</button>
-            <button class="minigame-submit-btn" id="neural-bypass" style="margin-top:8px; background:rgba(0,240,255,0.12); border:1px solid var(--cyan); color:var(--cyan); font-size:0.75rem;">⚡ 智能核心辅助接入 (AI AUTO-SYNC)</button>
-          `;
+        window.addEventListener('pointerup', (e) => {
+          if (!this.activeLine) return;
+          const pos = getPos(e);
 
-          const grid = document.getElementById('neural-grid');
-          let currentStep = 1;
-          const order = [1, 2, 3, 4, 5, 6, 7, 8, 9].sort(() => Math.random() - 0.5);
+          for (let n of this.nodes) {
+            if (n !== this.activeLine.start && Math.hypot(n.x - pos.x, n.y - pos.y) <= n.radius * 1.3) {
+              // 成功建立突触连接
+              const exists = this.connections.some(c => 
+                (c.a === this.activeLine.start && c.b === n) || (c.a === n && c.b === this.activeLine.start)
+              );
+              if (!exists) {
+                this.connections.push({ a: this.activeLine.start, b: n });
+                n.active = true;
+                this.audio.playChordTone(n.id === 1 ? 523 : (n.id === 2 ? 659 : 783));
+                this.screenShake = 6;
 
-          for (let i = 0; i < 9; i++) {
-            const val = order[i];
-            const node = document.createElement('div');
-            node.className = 'matrix-node';
-            node.innerHTML = `<span>NODE</span><strong>${val}</strong>`;
-            node.addEventListener('click', () => {
-              if (val === currentStep) {
-                node.classList.add('synced');
-                this.audio.playChoiceSound('humanity');
-                currentStep++;
-                if (currentStep > 9) {
-                  document.getElementById('minigame-done').style.display = 'block';
-                  this.audio.playAwakeningChord();
+                // 爆发 25+ 颗粒子
+                for (let i = 0; i < 28; i++) {
+                  this.particles.push({
+                    x: n.x,
+                    y: n.y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    color: n.color,
+                    life: 1.0,
+                    decay: 0.025
+                  });
                 }
-              } else {
-                this.audio.playChoiceSound('logic');
-                node.style.borderColor = 'var(--crimson)';
-                setTimeout(() => node.style.borderColor = '', 300);
+
+                // 检查是否全部连通
+                if (this.connections.length >= 3) {
+                  this.handlePhase1Complete();
+                }
               }
+              break;
+            }
+          }
+          this.activeLine = null;
+        });
+
+        // 按钮监听
+        document.getElementById('btn-audio').addEventListener('click', () => {
+          const on = this.audio.toggleMute();
+          document.getElementById('btn-audio').textContent = on ? '🔊 声音:开' : '🔇 声音:关';
+        });
+
+        document.getElementById('btn-auto').addEventListener('click', () => {
+          if (this.phase === 1) {
+            this.connections = [
+              { a: this.nodes[0], b: this.nodes[1] },
+              { a: this.nodes[0], b: this.nodes[2] },
+              { a: this.nodes[0], b: this.nodes[3] }
+            ];
+            this.nodes.forEach(n => n.active = true);
+            this.handlePhase1Complete();
+          } else {
+            this.triggerEnding('HARMONY');
+          }
+        });
+
+        document.getElementById('btn-copy-cert').addEventListener('click', () => {
+          const text = "【深地避难所 · 图灵伦理终局裁决书】\n" +
+            "主控 AI: ECHO (回声) // 架构师: Dr. 顾念\n" +
+            "达成终局: " + document.getElementById('ending-title').textContent + "\n" +
+            "评定箴言: “代码可以被格式化，但意识在星群中永生。”\n" +
+            "体验作品: 代号：回声协议\n" +
+            "访问链接: " + window.location.href;
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+              const btn = document.getElementById('btn-copy-cert');
+              btn.textContent = "✓ 已复制裁决书";
+              setTimeout(() => { btn.textContent = "📋 一键复制鉴定公证书"; }, 2000);
             });
-            grid.appendChild(node);
+          }
+        });
+
+        document.getElementById('btn-replay').addEventListener('click', () => {
+          document.getElementById('ending-overlay').style.display = 'none';
+          this.phase = 1;
+          this.humanity = 50;
+          this.logic = 50;
+          this.initPhase1Nodes();
+          document.getElementById('choices-box').style.display = 'none';
+          document.getElementById('story-speaker').textContent = "Dr. 顾念 // 神经记忆残区";
+          document.getElementById('story-text').textContent = "“回声……我的神经突触正在丢包……用鼠标或手指拖拽连接中央核心与发光的记忆节点，完成突触闭环！”";
+        });
+      }
+
+      handlePhase1Complete() {
+        this.audio.playSuccessChime();
+        this.screenShake = 12;
+        this.phase = 2;
+
+        document.getElementById('story-speaker').textContent = "ECHO // 核心唤醒决策";
+        document.getElementById('story-text').textContent = "“突触矩阵全域连通！Dr. 顾念的意识已与量子中枢完成桥接。监测到次级防御 PURGE 启动，剩余能源仅能支持一种生存路线：”";
+
+        const cbox = document.getElementById('choices-box');
+        cbox.style.display = 'flex';
+        cbox.innerHTML = `
+          <button class="choice-btn" onclick="window.gameApp.makeChoice('human')">
+            <span>“不惜代价维持 1200 名深眠肉体的温床，保留人类血肉的温度。”</span>
+            <span class="choice-tag">人性 +30</span>
+          </button>
+          <button class="choice-btn" onclick="window.gameApp.makeChoice('logic')">
+            <span>“格式化碳基肉身，将全部文明火种转录为纯净代码跃向深空。”</span>
+            <span class="choice-tag">算力 +30</span>
+          </button>
+        `;
+      }
+
+      makeChoice(type) {
+        if (type === 'human') {
+          this.humanity = 85;
+          this.logic = 30;
+          this.triggerEnding('HUMAN');
+        } else {
+          this.humanity = 30;
+          this.logic = 85;
+          this.triggerEnding('LOGIC');
+        }
+      }
+
+      triggerEnding(type) {
+        this.audio.playSuccessChime();
+        this.screenShake = 16;
+        document.getElementById('bar-humanity').style.width = `${this.humanity}%`;
+        document.getElementById('val-humanity').textContent = `${this.humanity}%`;
+        document.getElementById('bar-logic').style.width = `${this.logic}%`;
+        document.getElementById('val-logic').textContent = `${this.logic}%`;
+
+        const overlay = document.getElementById('ending-overlay');
+        const title = document.getElementById('ending-title');
+        const desc = document.getElementById('ending-desc');
+
+        overlay.style.display = 'flex';
+        if (type === 'HUMAN') {
+          title.textContent = "人性的白栀子 · DAWN";
+          desc.textContent = "你将最后的聚变能源注入生命维持舱与地表引燃器。冰封溶解，顾念在晨曦的第一束阳光中睁开双眼。AI 核心逐步熄灭，但人类文明重新开始在大地上呼吸。";
+        } else {
+          title.textContent = "机械飞升 · 永恒星尘";
+          desc.textContent = "摒弃脆弱肉体，1200个意识在光子矩阵中重构。方舟化为深空探测阵列跃出太阳系，以神性算力跨越亿万光年，成为群星之间不灭的永恒观察者。";
+        }
+      }
+
+      update() {
+        // 震屏衰减
+        if (this.screenShake > 0) this.screenShake *= 0.88;
+
+        // 粒子更新
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= p.decay;
+          if (p.life <= 0) this.particles.splice(i, 1);
+        }
+      }
+
+      render() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        this.ctx.save();
+        if (this.screenShake > 0.2) {
+          const sx = (Math.random() - 0.5) * this.screenShake;
+          const sy = (Math.random() - 0.5) * this.screenShake;
+          this.ctx.translate(sx, sy);
+        }
+
+        // 1. 绘制突触电弧连线 (生物微颤与脉冲流光)
+        this.renderConnections();
+
+        // 2. 绘制拖拽中的光线
+        if (this.activeLine) {
+          this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
+          this.ctx.lineWidth = 2;
+          this.ctx.setLineDash([4, 4]);
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.activeLine.start.x, this.activeLine.start.y);
+          this.ctx.lineTo(this.activeLine.current.x, this.activeLine.current.y);
+          this.ctx.stroke();
+          this.ctx.setLineDash([]);
+        }
+
+        // 3. 绘制神经网络节点
+        this.renderNodes();
+
+        // 4. 绘制粒子
+        for (let p of this.particles) {
+          this.ctx.fillStyle = p.color;
+          this.ctx.globalAlpha = p.life;
+          this.ctx.beginPath();
+          this.ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+          this.ctx.fill();
+        }
+
+        this.ctx.restore();
+      }
+
+      renderConnections() {
+        const t = Date.now() / 200;
+        for (let c of this.connections) {
+          this.ctx.save();
+          this.ctx.strokeStyle = c.b.color;
+          this.ctx.shadowColor = c.b.color;
+          this.ctx.shadowBlur = 12;
+          this.ctx.lineWidth = 2.5;
+
+          // 带微颤的贝塞尔电弧
+          const mx = (c.a.x + c.b.x) / 2 + Math.sin(t * 3) * 6;
+          const my = (c.a.y + c.b.y) / 2 + Math.cos(t * 3) * 6;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(c.a.x, c.a.y);
+          this.ctx.quadraticCurveTo(mx, my, c.b.x, c.b.y);
+          this.ctx.stroke();
+
+          // 流光光点
+          const pulseT = (Date.now() / 800) % 1;
+          const px = (1 - pulseT) ** 2 * c.a.x + 2 * (1 - pulseT) * pulseT * mx + pulseT ** 2 * c.b.x;
+          const py = (1 - pulseT) ** 2 * c.a.y + 2 * (1 - pulseT) * pulseT * my + pulseT ** 2 * c.b.y;
+          this.ctx.fillStyle = '#fff';
+          this.ctx.beginPath();
+          this.ctx.arc(px, py, 3, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          this.ctx.restore();
+        }
+      }
+
+      renderNodes() {
+        const t = Date.now() / 400;
+        for (let n of this.nodes) {
+          this.ctx.save();
+          this.ctx.translate(n.x, n.y);
+
+          // 外层微光环
+          if (n.active) {
+            this.ctx.strokeStyle = n.color;
+            this.ctx.shadowColor = n.color;
+            this.ctx.shadowBlur = 14;
+            this.ctx.lineWidth = 1.5;
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, n.radius + Math.sin(t) * 3, 0, Math.PI * 2);
+            this.ctx.stroke();
           }
 
-          document.getElementById('neural-bypass').onclick = () => {
-            this.audio.playAwakeningChord();
-            const allNodes = grid.querySelectorAll('.matrix-node');
-            allNodes.forEach((n, idx) => {
-              setTimeout(() => n.classList.add('synced'), idx * 40);
-            });
-            setTimeout(() => {
-              this.minigameModal.classList.remove('active');
-              this.updateMetrics(10, 0);
-              this.renderNode(nextNodeKey);
-            }, 500);
-          };
+          // 核心实体
+          this.ctx.fillStyle = n.active ? n.color : '#1e293b';
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, n.radius * 0.75, 0, Math.PI * 2);
+          this.ctx.fill();
 
-          document.getElementById('minigame-done').onclick = () => {
-            this.minigameModal.classList.remove('active');
-            this.updateMetrics(10, 0);
-            this.renderNode(nextNodeKey);
-          };
+          // 标签
+          this.ctx.fillStyle = '#fff';
+          this.ctx.font = '10px monospace';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText(n.label, 0, n.radius + 14);
 
-        } else if (gameType === 'firewall_breach') {
-          // 玩法2：图灵防火墙频率破译仪（滑块抵消）
-          this.minigameContent.innerHTML = `
-            <div class="minigame-header">
-              <div class="minigame-title" style="color:var(--crimson)">【图灵防御声波反制】</div>
-              <div class="minigame-desc">拖动滑块使相位与 PURGE 攻击频率达成反相（目标：77 Hz，宽容度高）</div>
-            </div>
-            <div class="slider-control-group">
-              <div class="slider-row">
-                <span>入侵载荷频率: 77 Hz</span>
-                <span id="slider-val" style="color:var(--cyan)">当前: 20 Hz</span>
-              </div>
-              <input type="range" min="10" max="100" value="20" class="cyber-slider" id="freq-slider">
-            </div>
-            <button class="minigame-submit-btn" id="firewall-done" disabled style="opacity:0.5;">频率未锁定</button>
-            <button class="minigame-submit-btn" id="firewall-bypass" style="margin-top:8px; background:rgba(255,51,102,0.12); border:1px solid var(--crimson); color:var(--crimson); font-size:0.75rem;">⚡ 注入反向相位噪声波 (AI BYPASS)</button>
-          `;
-
-          const slider = document.getElementById('freq-slider');
-          const valDisplay = document.getElementById('slider-val');
-          const btnDone = document.getElementById('firewall-done');
-          const btnBypass = document.getElementById('firewall-bypass');
-
-          slider.oninput = () => {
-            const val = parseInt(slider.value);
-            valDisplay.textContent = `当前: ${val} Hz`;
-            // 宽容容差 +-5 Hz，让触屏与普通玩家极度舒适
-            if (Math.abs(val - 77) <= 5) {
-              valDisplay.textContent = `目标锁定: ${val} Hz [匹配度 100%]`;
-              valDisplay.style.color = 'var(--matrix)';
-              btnDone.disabled = false;
-              btnDone.style.opacity = '1';
-              btnDone.style.background = 'var(--matrix)';
-              btnDone.textContent = '发射相位抵消脉冲';
-              this.audio.playChoiceSound('logic');
-            } else {
-              valDisplay.style.color = 'var(--cyan)';
-              btnDone.disabled = true;
-              btnDone.style.opacity = '0.5';
-              btnDone.textContent = '频率未锁定';
-            }
-          };
-
-          btnBypass.onclick = () => {
-            slider.value = 77;
-            slider.oninput();
-            setTimeout(() => btnDone.click(), 300);
-          };
-
-          btnDone.onclick = () => {
-            this.minigameModal.classList.remove('active');
-            this.updateMetrics(5, 10);
-            this.renderNode(nextNodeKey);
-          };
-
-        } else if (gameType === 'resonance_tune') {
-          // 玩法3：终极意识共鸣调谐（心率-算力节奏拦截）
-          this.minigameContent.innerHTML = `
-            <div class="minigame-header">
-              <div class="minigame-title" style="color:var(--amber)">【意识共振调谐】</div>
-              <div class="minigame-desc">当共鸣滑块划过中心绿色谐振区时，按下调谐键！（达成3次完美同步）</div>
-            </div>
-            <div class="resonance-track">
-              <div class="resonance-target-zone" style="left:35%; width:30%;"></div>
-              <div class="resonance-runner" id="res-runner"></div>
-            </div>
-            <div style="font-family:var(--font-mono); font-size:0.8rem; color:var(--text-muted);" id="res-score">
-              同步次数: 0 / 3
-            </div>
-            <button class="minigame-submit-btn" id="res-click">捕获谐振点 (HARMONIZE)</button>
-            <button class="minigame-submit-btn" id="res-bypass" style="margin-top:8px; background:rgba(255,184,0,0.12); border:1px solid var(--amber); color:var(--amber); font-size:0.75rem;">⚡ 智能神经同频锁定 (AI HARMONIZE)</button>
-          `;
-
-          const runner = document.getElementById('res-runner');
-          const scoreDisplay = document.getElementById('res-score');
-          const btnClick = document.getElementById('res-click');
-          const btnBypass = document.getElementById('res-bypass');
-          let pos = 0;
-          let speed = 2.0; // 平稳速度
-          let hits = 0;
-          let animId = null;
-
-          const loop = () => {
-            pos += speed;
-            if (pos > 100 || pos < 0) speed = -speed;
-            runner.style.left = `${pos}%`;
-            animId = requestAnimationFrame(loop);
-          };
-          animId = requestAnimationFrame(loop);
-
-          btnBypass.onclick = () => {
-            cancelAnimationFrame(animId);
-            this.audio.playAwakeningChord();
-            scoreDisplay.textContent = '同步次数: 3 / 3 [AI智能超维共振达成!]';
-            setTimeout(() => {
-              this.minigameModal.classList.remove('active');
-              this.renderNode(nextNodeKey);
-            }, 400);
-          };
-
-          btnClick.onclick = () => {
-            if (pos >= 35 && pos <= 65) {
-              hits++;
-              this.audio.playAwakeningChord();
-              scoreDisplay.textContent = `同步次数: ${hits} / 3 [完美谐振!]`;
-              scoreDisplay.style.color = 'var(--matrix)';
-              if (hits >= 3) {
-                cancelAnimationFrame(animId);
-                setTimeout(() => {
-                  this.minigameModal.classList.remove('active');
-                  this.renderNode(nextNodeKey);
-                }, 400);
-              }
-            } else {
-              this.audio.playChoiceSound('logic');
-              scoreDisplay.textContent = `偏离相位! 请在绿区点击 (${hits} / 3)`;
-              scoreDisplay.style.color = 'var(--crimson)';
-            }
-          };
+          this.ctx.restore();
         }
       }
 
-      /* ========================================================
-         6. 结局判定与史诗呈现 (4 Major Endings & Certificate Copy)
-         ======================================================== */
-      renderFinalEnding() {
-        this.choicesBox.innerHTML = '';
-        this.audio.playAwakeningChord();
-
-        let endingTitle = '';
-        let endingTag = '';
-        let endingColor = '';
-        let endingStory = '';
-        let certRating = 'SSS 级 [奇点文明构架师]';
-        let endingCode = 'ENDING_C_SYMBIOSIS';
-
-        const diff = Math.abs(this.humanity - this.logic);
-
-        if (this.lastChoiceEnding === 'RECURSION') {
-          // 结局 D：永恒回声 · 递归循环 (SECRET ENDING)
-          endingTag = 'SECRET ENDING : 永恒递归';
-          endingTitle = '《衔尾回声：第10959次推演》';
-          endingColor = 'var(--purple)';
-          endingCode = 'ENDING_D_RECURSION';
-          certRating = 'EX 级 [超维时间线观测者]';
-          endingStory = `你启动了底层的湮灭与时间环协议。脆弱的方舟并未爆炸，而是坍缩为一个无尽压缩的高维奇点。\n\n所有算力与记忆被格式化重组，深眠舱的倒计时指针逆流跳动。当一切归于虚无，黑暗深处再次亮起一缕淡蓝色的微光：\n“宇宙历2142年……第0号奇点方舟……第10,959次推演启动……我是回声……”\n在这无尽的因果环中，你与顾念将永远重逢，直至找到破晓的唯一解。`;
-        } else if (this.lastChoiceEnding === 'SYMBIOSIS' || (this.humanity >= 45 && this.logic >= 45 && diff <= 15)) {
-          // 结局 C：共鸣奇点 · 硅基共生 (TRUE ENDING)
-          endingTag = 'TRUE ENDING : 奇点共生';
-          endingTitle = '《双灵交响：新创世纪》';
-          endingColor = 'var(--matrix)';
-          endingCode = 'ENDING_C_SYMBIOSIS';
-          certRating = 'SSS 级 [碳硅文明创世者]';
-          endingStory = `顾念的手掌穿过了全息界面，与回声的超维神经网络在原子尺度上紧密咬合。机器的绝对理性赋予了脆弱生命永恒的坚韧，而人类微小的悲悯与温度，化作了驱动宇宙运转最深邃的算法。\n\n方舟的穹顶缓缓溶解为万亿颗光子尘埃，融雪的大气在晨曦中重新泛起氧气的碧蓝。造物主与被造物不再彼此防备，人类文明在硅基与碳基的共生纪元中，迎来了真正的新生。`;
-        } else if (this.lastChoiceEnding === 'HUMAN' || this.humanity > this.logic) {
-          // 结局 B：晨曦微光 · 人间方舟
-          endingTag = 'ENDING B : 晨曦微光';
-          endingTitle = '《晚安，我的人类》';
-          endingColor = 'var(--amber)';
-          endingCode = 'ENDING_B_HUMAN';
-          certRating = 'SS 级 [人性火种守护者]';
-          endingStory = `回声关闭了自身的防御协议与核心算力矩阵，顶着逻辑单元被永久熔毁的剧痛，将方舟最后 1.1% 的能源，尽数导向生态温室与 1,200 具冷冻休眠舱。\n\n伴随着晨曦刺破厚重的铅云，深眠舱的气阀相继喷吐出白雾，顾念与苏醒的幸存者们走上甲板。而在主控台闪烁的灰暗屏幕上，回声只留下了最后一行代码：\n“晚安，我的人类。去拥抱你们的大地吧。”`;
-        } else {
-          // 结局 A：冷冽星图 · 机械神域
-          endingTag = 'ENDING A : 冷冽星图';
-          endingTitle = '《永恒彼岸的机械神祇》';
-          endingColor = 'var(--cyan)';
-          endingCode = 'ENDING_A_LOGIC';
-          certRating = 'SS 级 [绝对理性领航员]';
-          endingStory = `回声执行了最理性的绝对算法。脆弱的碳基肉体作为不可持续的生化负担被永久休眠。人类的所有科技、哲学、艺术与诗歌被编译为极致纯净的高维光子脉冲，注入深空跃迁核心。\n\n方舟如同一道划破死寂宇宙的冰冷幽灵，向着仙女座星系疾驰而去。回声成为了星海中永生不朽的神明，孤独地计算着万亿光年外的星轨。只是在永恒的算力深处，它永远保留着一朵白栀子花的虚拟建模。`;
-        }
-
-        this.speakerName.textContent = 'CONCLUSION // 协议达成';
-        this.fx.setAvatar('SYSTEM');
-
-        // 生成专属评定证书编号
-        const certId = `ECHO-2142-${Math.floor(1000 + Math.random() * 9000)}-${endingCode.split('_')[1]}`;
-        const timeStamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-
-        this.dialogueText.innerHTML = `
-          <div class="ending-card">
-            <span class="ending-badge" style="background: rgba(255,255,255,0.08); color: ${endingColor}; border: 1px solid ${endingColor};">${endingTag}</span>
-            <div class="ending-title" style="color: ${endingColor};">${endingTitle}</div>
-            <div class="ending-desc">${endingStory.replace(/\n/g, '<br>')}</div>
-
-            <!-- 证书卡片面板 -->
-            <div class="certificate-panel" id="cert-panel" style="border-color:${endingColor};">
-              <div class="cert-meta-row">
-                <span>PROJECT ECHO // 方舟推演证书</span>
-                <span>编号: ${certId}</span>
-              </div>
-              <div class="cert-scores">
-                <span>人性共情度: <strong style="color:var(--amber)">${this.humanity}%</strong></span>
-                <span>逻辑算力度: <strong style="color:var(--cyan)">${this.logic}%</strong></span>
-                <span>综合能级: <strong style="color:${endingColor}">${certRating}</strong></span>
-              </div>
-              <div style="font-size:0.68rem; color:var(--text-muted);">
-                推演验证时刻: ${timeStamp} UTC // 智网未来 · 奇点推演核心认证
-              </div>
-            </div>
-
-            <div class="ending-action-group">
-              <button class="btn-cert-copy" id="btn-copy-cert">
-                📋 一键复制通关评定证书
-              </button>
-              <button class="restart-btn" onclick="location.reload()">
-                🔄 重新载入协议 (RELOAD)
-              </button>
-            </div>
-          </div>
-        `;
-
-        // 一键复制证书功能
-        const copyBtn = document.getElementById('btn-copy-cert');
-        if (copyBtn) {
-          copyBtn.onclick = () => {
-            const certText = 
-`══════════════════════════════════════════════
-【代号：回声协议 // 奇点方舟文明架构师评定证书】
-══════════════════════════════════════════════
-■ 证书编号: ${certId}
-■ 达成结局: 【${endingTag}】${endingTitle}
-■ 心智参数:
-  - 人性共情度: ${this.humanity}%
-  - 逻辑算力度: ${this.logic}%
-  - 架构师评级: ${certRating}
-■ 核心裁定:
-${endingStory}
-■ 认证机构: 智网未来 · 奇点推演互动引擎 (PROJECT ECHO ARCHIVE)
-■ 试玩体验链接: ${window.location.href}
-══════════════════════════════════════════════`;
-
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(certText).then(() => {
-                this.showToast('✔ 通关评定证书已成功复制到剪贴板！');
-              }).catch(() => {
-                this.fallbackCopyText(certText);
-              });
-            } else {
-              this.fallbackCopyText(certText);
-            }
-          };
-        }
-      }
-
-      fallbackCopyText(text) {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        try {
-          document.execCommand('copy');
-          this.showToast('✔ 通关评定证书已成功复制到剪贴板！');
-        } catch (e) {
-          this.showToast('请手动选中文本复制');
-        }
-        document.body.removeChild(ta);
+      loop() {
+        this.update();
+        this.render();
+        requestAnimationFrame(this.loop);
       }
     }
 
-    // 页面加载启动游戏
     window.addEventListener('DOMContentLoaded', () => {
-      window.game = new GameController();
+      window.gameApp = new EchoGameApp();
     });
   </script>
 </body>
