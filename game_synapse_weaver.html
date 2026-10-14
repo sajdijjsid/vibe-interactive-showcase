@@ -1017,6 +1017,26 @@
         this.initCanvasEvents();
         this.initUIEvents();
         this.initOscilloscope();
+
+        // 支持 URL ?stage=X 关卡直接定位
+        const urlParams = new URLSearchParams(window.location.search);
+        const reqStage = parseInt(urlParams.get('stage'), 10);
+        let startStage = 0;
+        if (!isNaN(reqStage) && reqStage >= 0 && reqStage < 3) {
+          startStage = reqStage;
+        }
+
+        // 监听父级 Stage HUD 的切关消息
+        window.addEventListener('message', (e) => {
+          if (e.data && e.data.type === 'SET_STAGE') {
+            const s = parseInt(e.data.stage, 10);
+            if (!isNaN(s) && s >= 0 && s < 3) {
+              this.loadStage(s);
+            }
+          }
+        });
+
+        this.loadStage(startStage);
       }
 
       triggerShake(amp = 6) {
@@ -1071,7 +1091,12 @@
         }
       }
 
-      spawnInitialNodes() {
+      loadStage(stage = 0) {
+        this.spawnInitialNodes(stage);
+      }
+
+      spawnInitialNodes(stage = 0) {
+        this.currentStage = stage;
         // 在画布中间区域自适应生成代表记忆碎片的突触节点 (适配移动竖屏 360px~430px 至 4K 超宽屏)
         const cx = this.width * 0.5;
         const cy = this.height * 0.5;
@@ -1079,16 +1104,40 @@
         const spreadY = Math.min(130, (this.height - 180) * 0.28);
         const rScale = Math.min(1.0, Math.max(0.75, this.width / 600));
 
-        this.nodes = [
-          { id: 1, name: '初遇·雨夜', role: 'origin', x: cx - spreadX, y: cy - spreadY * 0.7, radius: Math.round(24 * rScale), color: '#38bdf8', pulse: 0 },
-          { id: 2, name: '旧琴房·泛音', role: 'target', x: cx - spreadX * 0.36, y: cy + spreadY * 0.85, radius: Math.round(22 * rScale), color: '#38bdf8', pulse: 1 },
-          { id: 3, name: '背叛·毒药', role: 'conflict', x: cx + spreadX * 0.5, y: cy - spreadY, radius: Math.round(26 * rScale), color: '#c084fc', pulse: 2 },
-          { id: 4, name: '维也纳·绝唱', role: 'climax', x: cx + spreadX, y: cy + spreadY * 0.54, radius: Math.round(25 * rScale), color: '#c084fc', pulse: 3 },
-          { id: 5, name: '林弦·核心共鸣', role: 'core', x: cx, y: cy - 15, radius: Math.round(30 * rScale), color: '#fbbf24', pulse: 4 }
-        ];
+        if (stage === 0) {
+          // 第1关「单突触电弧桥接」：2 个核心节点
+          this.nodes = [
+            { id: 1, name: '初遇·雨夜', role: 'origin', x: cx - spreadX * 0.7, y: cy, radius: Math.round(26 * rScale), color: '#38bdf8', pulse: 0 },
+            { id: 2, name: '旧琴房·泛音', role: 'target', x: cx + spreadX * 0.7, y: cy, radius: Math.round(26 * rScale), color: '#38bdf8', pulse: 1 }
+          ];
+          this.targetLinksRequired = 1;
+        } else if (stage === 1) {
+          // 第2关「三轴示波器调频消噪」：3 个节点 + 核心共鸣
+          this.nodes = [
+            { id: 1, name: '初遇·雨夜', role: 'origin', x: cx - spreadX * 0.7, y: cy - spreadY * 0.4, radius: Math.round(24 * rScale), color: '#38bdf8', pulse: 0 },
+            { id: 2, name: '旧琴房·泛音', role: 'target', x: cx + spreadX * 0.7, y: cy - spreadY * 0.4, radius: Math.round(24 * rScale), color: '#38bdf8', pulse: 1 },
+            { id: 5, name: '林弦·核心共鸣', role: 'core', x: cx, y: cy + spreadY * 0.65, radius: Math.round(28 * rScale), color: '#fbbf24', pulse: 2 }
+          ];
+          this.targetLinksRequired = 2;
+        } else {
+          // 第3关「全脑多节点电弧合奏」：5 个全域节点
+          this.nodes = [
+            { id: 1, name: '初遇·雨夜', role: 'origin', x: cx - spreadX, y: cy - spreadY * 0.7, radius: Math.round(24 * rScale), color: '#38bdf8', pulse: 0 },
+            { id: 2, name: '旧琴房·泛音', role: 'target', x: cx - spreadX * 0.36, y: cy + spreadY * 0.85, radius: Math.round(22 * rScale), color: '#38bdf8', pulse: 1 },
+            { id: 3, name: '背叛·毒药', role: 'conflict', x: cx + spreadX * 0.5, y: cy - spreadY, radius: Math.round(26 * rScale), color: '#c084fc', pulse: 2 },
+            { id: 4, name: '维也纳·绝唱', role: 'climax', x: cx + spreadX, y: cy + spreadY * 0.54, radius: Math.round(25 * rScale), color: '#c084fc', pulse: 3 },
+            { id: 5, name: '林弦·核心共鸣', role: 'core', x: cx, y: cy - 15, radius: Math.round(30 * rScale), color: '#fbbf24', pulse: 4 }
+          ];
+          this.targetLinksRequired = 4;
+        }
 
         this.links = [];
         this.selectedNode = null;
+        this.circuitPercent = 0;
+        const txtEl = document.getElementById('txt-circuit-percent');
+        const barEl = document.getElementById('bar-circuit');
+        if (txtEl) txtEl.textContent = '0%';
+        if (barEl) barEl.style.width = '0%';
       }
 
       initCanvasEvents() {
@@ -1198,6 +1247,25 @@
         this.spawnSparkBurst(nodeB.x, nodeB.y, nodeB.color, 16);
         this.spawnSparkBurst((nodeA.x + nodeB.x) / 2, (nodeA.y + nodeB.y) / 2, '#fbbf24', 24);
         this.triggerShake(5);
+
+        // 检查关卡是否达成通关，并通知父级 Stage HUD
+        const reqLinks = this.targetLinksRequired || (this.currentStage === 0 ? 1 : (this.currentStage === 1 ? 2 : 4));
+        if (this.links.length >= reqLinks) {
+          this.circuitPercent = 100;
+          document.getElementById('txt-circuit-percent').textContent = '100%';
+          document.getElementById('bar-circuit').style.width = '100%';
+
+          const stageNames = ['单突触电弧桥接', '三轴示波器调频消噪', '全脑多节点电弧合奏'];
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'STAGE_CLEAR',
+              cartridgeId: 'game_synapse',
+              stage: this.currentStage || 0,
+              stageTitle: stageNames[this.currentStage || 0] || '神经突触连通',
+              feedback: '生物电弧谐波闭环构建成功，高频杂音平息，记忆和弦奏响！'
+            }, '*');
+          }
+        }
 
         // 播放共鸣和弦
         const currentChapter = MEMORY_CHAPTERS[this.currentActIndex];

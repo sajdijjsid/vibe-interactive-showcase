@@ -466,6 +466,12 @@
       }
     }
 
+    const ECHO_STAGES = [
+      { id: 0, title: '底层突触回路修复', feedback: 'Dr. 顾念的意识碎片成功与量子中枢完成桥接！' },
+      { id: 1, title: '图灵防火墙节点破译', feedback: 'PURGE 次级侵蚀协议已被成功瓦解，主控终密钥已解锁！' },
+      { id: 2, title: '方舟主控双轴伦理终局抉择', feedback: '终极信标广播已发送，文明演化走向全新维度！' }
+    ];
+
     /* ========================================================
        2. 实时交互舞台：开局直接游玩的突触连线与共振矩阵
        ======================================================== */
@@ -483,6 +489,8 @@
         this.logic = 50;
         this.phase = 1; // 1: 突触连接, 2: 道德抉择, 3: 防火墙破译, 4: 终局
         this.screenShake = 0;
+        this.currentStage = 0;
+        this.hasSentClear = false;
 
         // 实体系统
         this.particles = [];
@@ -490,9 +498,26 @@
         this.connections = [];
         this.activeLine = null;
 
+        // 支持 URL ?stage=X 关卡直接定位
+        const urlParams = new URLSearchParams(window.location.search);
+        const reqStage = parseInt(urlParams.get('stage'), 10);
+        if (!isNaN(reqStage) && reqStage >= 0 && reqStage < 3) {
+          this.currentStage = reqStage;
+        }
+
+        // 监听父级 Stage HUD 的切关消息
+        window.addEventListener('message', (e) => {
+          if (e.data && e.data.type === 'SET_STAGE') {
+            const s = parseInt(e.data.stage, 10);
+            if (!isNaN(s) && s >= 0 && s < 3) {
+              this.setStage(s);
+            }
+          }
+        });
+
         this.initCanvasSize();
         this.initInput();
-        this.initPhase1Nodes();
+        this.setStage(this.currentStage);
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
       }
@@ -506,9 +531,37 @@
           this.canvas.height = this.height * this.dpr;
           this.ctx.scale(this.dpr, this.dpr);
           if (this.phase === 1) this.initPhase1Nodes();
+          if (this.phase === 3) this.initPhase3Nodes();
         };
         window.addEventListener('resize', resize);
         resize();
+      }
+
+      setStage(s) {
+        this.currentStage = Math.max(0, Math.min(2, s));
+        this.hasSentClear = false;
+        this.connections = [];
+        this.activeLine = null;
+        this.particles = [];
+        const overlay = document.getElementById('ending-overlay');
+        if (overlay) overlay.style.display = 'none';
+
+        if (this.currentStage === 0) {
+          this.phase = 1;
+          this.initPhase1Nodes();
+          document.getElementById('choices-box').style.display = 'none';
+          document.getElementById('story-speaker').textContent = "Dr. 顾念 // 神经记忆残区";
+          document.getElementById('story-text').textContent = "“回声……我的神经突触正在丢包……用鼠标或手指拖拽连接中央核心与发光的记忆节点，完成突触闭环！”";
+        } else if (this.currentStage === 1) {
+          this.phase = 3;
+          this.initPhase3Nodes();
+          document.getElementById('choices-box').style.display = 'none';
+          document.getElementById('story-speaker').textContent = "PURGE // 次级防御阵列";
+          document.getElementById('story-text').textContent = "【警告】检测到图灵防火墙 4 重锁定！点击或轻触所有红色防御节点，破译安全密钥！";
+        } else if (this.currentStage === 2) {
+          this.phase = 2;
+          this.initPhase2Ethics();
+        }
       }
 
       initPhase1Nodes() {
@@ -523,6 +576,40 @@
           { id: 3, x: cx + Math.cos(5 * Math.PI / 6) * r, y: cy + Math.sin(5 * Math.PI / 6) * r, label: '记忆区 C', active: false, radius: 20, color: '#bf5af2' }
         ];
         this.connections = [];
+      }
+
+      initPhase3Nodes() {
+        const cx = this.width / 2;
+        const cy = this.height / 2 - 20;
+        const r = Math.min(this.width, this.height) * 0.28;
+        this.nodes = [
+          { id: 0, x: cx - r, y: cy - r * 0.45, label: 'FW_ALPHA', active: false, radius: 24, color: '#ff3366', unlockedColor: '#00ff88' },
+          { id: 1, x: cx + r, y: cy - r * 0.45, label: 'FW_BETA', active: false, radius: 24, color: '#ff3366', unlockedColor: '#00ff88' },
+          { id: 2, x: cx - r * 0.6, y: cy + r * 0.65, label: 'FW_GAMMA', active: false, radius: 24, color: '#ff3366', unlockedColor: '#00ff88' },
+          { id: 3, x: cx + r * 0.6, y: cy + r * 0.65, label: 'FW_DELTA', active: false, radius: 24, color: '#ff3366', unlockedColor: '#00ff88' }
+        ];
+        this.connections = [];
+      }
+
+      initPhase2Ethics() {
+        this.phase = 2;
+        this.nodes = [];
+        this.connections = [];
+        document.getElementById('story-speaker').textContent = "ECHO // 核心唤醒决策";
+        document.getElementById('story-text').textContent = "“突触全域桥接，防火墙已瓦解！主控能源仅够支持一条生存路线，请做出裁决：”";
+
+        const cbox = document.getElementById('choices-box');
+        cbox.style.display = 'flex';
+        cbox.innerHTML = `
+          <button class="choice-btn" onclick="window.gameApp.makeChoice('human')">
+            <span>“不惜代价维持 1200 名深眠肉体的温床，保留人类血肉的温度。”</span>
+            <span class="choice-tag">人性 +30</span>
+          </button>
+          <button class="choice-btn" onclick="window.gameApp.makeChoice('logic')">
+            <span>“格式化碳基肉身，将全部文明火种转录为纯净代码跃向深空。”</span>
+            <span class="choice-tag">算力 +30</span>
+          </button>
+        `;
       }
 
       initInput() {
@@ -540,6 +627,33 @@
             for (let n of this.nodes) {
               if (Math.hypot(n.x - pos.x, n.y - pos.y) <= n.radius * 1.3) {
                 this.activeLine = { start: n, current: pos };
+                break;
+              }
+            }
+          } else if (this.phase === 3) {
+            // 防火墙破译：点击/轻触解锁红色节点
+            for (let n of this.nodes) {
+              if (Math.hypot(n.x - pos.x, n.y - pos.y) <= n.radius * 1.4) {
+                if (!n.active) {
+                  n.active = true;
+                  n.color = n.unlockedColor || '#00ff88';
+                  this.audio.playChordTone(600 + n.id * 140);
+                  this.screenShake = 8;
+                  for (let i = 0; i < 24; i++) {
+                    this.particles.push({
+                      x: n.x,
+                      y: n.y,
+                      vx: (Math.random() - 0.5) * 8,
+                      vy: (Math.random() - 0.5) * 8,
+                      color: '#00ff88',
+                      life: 1.0,
+                      decay: 0.03
+                    });
+                  }
+                  if (this.nodes.every(node => node.active)) {
+                    this.handlePhase3Complete();
+                  }
+                }
                 break;
               }
             }
@@ -600,7 +714,7 @@
         });
 
         document.getElementById('btn-auto').addEventListener('click', () => {
-          if (this.phase === 1) {
+          if (this.currentStage === 0) {
             this.connections = [
               { a: this.nodes[0], b: this.nodes[1] },
               { a: this.nodes[0], b: this.nodes[2] },
@@ -608,8 +722,14 @@
             ];
             this.nodes.forEach(n => n.active = true);
             this.handlePhase1Complete();
+          } else if (this.currentStage === 1) {
+            this.nodes.forEach(n => {
+              n.active = true;
+              n.color = n.unlockedColor || '#00ff88';
+            });
+            this.handlePhase3Complete();
           } else {
-            this.triggerEnding('HARMONY');
+            this.makeChoice('human');
           }
         });
 
@@ -630,37 +750,42 @@
         });
 
         document.getElementById('btn-replay').addEventListener('click', () => {
-          document.getElementById('ending-overlay').style.display = 'none';
-          this.phase = 1;
-          this.humanity = 50;
-          this.logic = 50;
-          this.initPhase1Nodes();
-          document.getElementById('choices-box').style.display = 'none';
-          document.getElementById('story-speaker').textContent = "Dr. 顾念 // 神经记忆残区";
-          document.getElementById('story-text').textContent = "“回声……我的神经突触正在丢包……用鼠标或手指拖拽连接中央核心与发光的记忆节点，完成突触闭环！”";
+          this.setStage(this.currentStage);
         });
       }
 
       handlePhase1Complete() {
+        if (this.hasSentClear) return;
+        this.hasSentClear = true;
         this.audio.playSuccessChime();
         this.screenShake = 12;
-        this.phase = 2;
+        const cfg = ECHO_STAGES[0];
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'STAGE_CLEAR',
+            stage: 0,
+            maxStage: 3,
+            title: cfg.title,
+            feedback: cfg.feedback
+          }, '*');
+        }
+      }
 
-        document.getElementById('story-speaker').textContent = "ECHO // 核心唤醒决策";
-        document.getElementById('story-text').textContent = "“突触矩阵全域连通！Dr. 顾念的意识已与量子中枢完成桥接。监测到次级防御 PURGE 启动，剩余能源仅能支持一种生存路线：”";
-
-        const cbox = document.getElementById('choices-box');
-        cbox.style.display = 'flex';
-        cbox.innerHTML = `
-          <button class="choice-btn" onclick="window.gameApp.makeChoice('human')">
-            <span>“不惜代价维持 1200 名深眠肉体的温床，保留人类血肉的温度。”</span>
-            <span class="choice-tag">人性 +30</span>
-          </button>
-          <button class="choice-btn" onclick="window.gameApp.makeChoice('logic')">
-            <span>“格式化碳基肉身，将全部文明火种转录为纯净代码跃向深空。”</span>
-            <span class="choice-tag">算力 +30</span>
-          </button>
-        `;
+      handlePhase3Complete() {
+        if (this.hasSentClear) return;
+        this.hasSentClear = true;
+        this.audio.playSuccessChime();
+        this.screenShake = 14;
+        const cfg = ECHO_STAGES[1];
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'STAGE_CLEAR',
+            stage: 1,
+            maxStage: 3,
+            title: cfg.title,
+            feedback: cfg.feedback
+          }, '*');
+        }
       }
 
       makeChoice(type) {
@@ -672,6 +797,19 @@
           this.humanity = 30;
           this.logic = 85;
           this.triggerEnding('LOGIC');
+        }
+        if (!this.hasSentClear) {
+          this.hasSentClear = true;
+          const cfg = ECHO_STAGES[2];
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'STAGE_CLEAR',
+              stage: 2,
+              maxStage: 3,
+              title: cfg.title,
+              feedback: cfg.feedback
+            }, '*');
+          }
         }
       }
 
@@ -788,28 +926,49 @@
           this.ctx.save();
           this.ctx.translate(n.x, n.y);
 
-          // 外层微光环
-          if (n.active) {
-            this.ctx.strokeStyle = n.color;
-            this.ctx.shadowColor = n.color;
-            this.ctx.shadowBlur = 14;
-            this.ctx.lineWidth = 1.5;
+          if (!n.active && this.phase === 3) {
+            // 防火墙锁定状态：红色呼吸警报光环
+            this.ctx.strokeStyle = 'rgba(255, 51, 102, 0.7)';
+            this.ctx.shadowColor = '#ff3366';
+            this.ctx.shadowBlur = 12;
+            this.ctx.lineWidth = 2;
             this.ctx.beginPath();
-            this.ctx.arc(0, 0, n.radius + Math.sin(t) * 3, 0, Math.PI * 2);
+            this.ctx.arc(0, 0, n.radius + Math.sin(t * 2) * 3, 0, Math.PI * 2);
             this.ctx.stroke();
+
+            this.ctx.fillStyle = '#2b0a14';
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, n.radius * 0.75, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            this.ctx.fillStyle = '#ff6b8b';
+            this.ctx.font = '10px monospace';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(n.label + ' [LOCKED]', 0, n.radius + 14);
+          } else {
+            // 外层微光环
+            if (n.active) {
+              this.ctx.strokeStyle = n.color;
+              this.ctx.shadowColor = n.color;
+              this.ctx.shadowBlur = 14;
+              this.ctx.lineWidth = 1.5;
+              this.ctx.beginPath();
+              this.ctx.arc(0, 0, n.radius + Math.sin(t) * 3, 0, Math.PI * 2);
+              this.ctx.stroke();
+            }
+
+            // 核心实体
+            this.ctx.fillStyle = n.active ? n.color : '#1e293b';
+            this.ctx.beginPath();
+            this.ctx.arc(0, 0, n.radius * 0.75, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // 标签
+            this.ctx.fillStyle = n.active ? '#fff' : '#64748b';
+            this.ctx.font = '10px monospace';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(n.label + (this.phase === 3 && n.active ? ' [CLEAR]' : ''), 0, n.radius + 14);
           }
-
-          // 核心实体
-          this.ctx.fillStyle = n.active ? n.color : '#1e293b';
-          this.ctx.beginPath();
-          this.ctx.arc(0, 0, n.radius * 0.75, 0, Math.PI * 2);
-          this.ctx.fill();
-
-          // 标签
-          this.ctx.fillStyle = '#fff';
-          this.ctx.font = '10px monospace';
-          this.ctx.textAlign = 'center';
-          this.ctx.fillText(n.label, 0, n.radius + 14);
 
           this.ctx.restore();
         }

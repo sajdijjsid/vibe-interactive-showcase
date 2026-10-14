@@ -1214,6 +1214,25 @@
         noise.start(t);
       }
 
+      // 关卡达成与胜利音效 (明亮清脆的合成琶音)
+      playVictory() {
+        if (!this.ctx || this.muted) return;
+        const notes = [440, 554.37, 659.25, 880];
+        notes.forEach((freq, i) => {
+          const t = this.ctx.currentTime + i * 0.08;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.25, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(t);
+          osc.stop(t + 0.35);
+        });
+      }
+
       toggleMute() {
         this.muted = !this.muted;
         if (this.masterGain) {
@@ -1289,6 +1308,12 @@
       }
     ];
 
+    const CYBER_STAGES = [
+      { id: 0, startDist: 0.0, targetDist: 1.0, title: '双轨重力疾行', feedback: '突破第七区外围防线，机车重力翻转系统稳定运行！' },
+      { id: 1, startDist: 1.0, targetDist: 2.0, title: '密集激光障与光刃连斩', feedback: '等离子光刃锋芒连斩，密集激光阵列被撕裂贯通！' },
+      { id: 2, startDist: 2.0, targetDist: 3.0, title: '高危无线电子弹时间抉择', feedback: '终局数据完整走私出境，赛博信使信条铭刻夜空！' }
+    ];
+
     /* ========================================================
        3. 游戏核心运行时与跑酷/视觉系统 (Game Runtime & Visuals)
        ======================================================== */
@@ -1306,6 +1331,8 @@
         this.state = 'TITLE'; // TITLE, RUNNING, PAUSED, ENDING
         this.distance = 0; // km
         this.maxDistance = 3.0; // km
+        this.currentStage = 0;
+        this.hasSentClear = false;
         this.difficultyMode = 'FLOW'; // 'FLOW' (沉浸心流，大众舒适模式) | 'EXTREME' (极限挑战)
         this.timeScale = 1.0; // 时间流速缩放 (无线电通讯时进入 0.28x 黑客子弹时间)
         this.speed = 90; // km/h (调优至符合人类反应与视听享受的舒适速度)
@@ -1354,6 +1381,79 @@
         this.initInput();
         this.initSpeedlines();
         this.initAvatars();
+
+        // 支持 URL ?stage=X 关卡直接定位
+        const urlParams = new URLSearchParams(window.location.search);
+        const reqStage = parseInt(urlParams.get('stage'), 10);
+        if (!isNaN(reqStage) && reqStage >= 0 && reqStage < 3) {
+          this.currentStage = reqStage;
+        }
+
+        // 监听父级 Stage HUD 的切关消息
+        window.addEventListener('message', (e) => {
+          if (e.data && e.data.type === 'SET_STAGE') {
+            const s = parseInt(e.data.stage, 10);
+            if (!isNaN(s) && s >= 0 && s < 3) {
+              this.setStage(s);
+            }
+          }
+        });
+
+        this.setStage(this.currentStage);
+      }
+
+      setStage(s) {
+        this.currentStage = Math.max(0, Math.min(2, s));
+        const cfg = CYBER_STAGES[this.currentStage] || CYBER_STAGES[0];
+        this.distance = cfg.startDist;
+        this.stageTargetDist = cfg.targetDist;
+        this.hasSentClear = false;
+        this.shield = 100;
+        this.heat = 10;
+        this.obstacles = [];
+        this.pickups = [];
+        this.drones = [];
+
+        // 调整关卡对应的剧情通讯进度
+        if (this.currentStage === 0) {
+          this.currentStoryIndex = 0;
+        } else if (this.currentStage === 1) {
+          this.currentStoryIndex = 2; // ambush_reveal
+        } else if (this.currentStage === 2) {
+          this.currentStoryIndex = 3; // mona_confession
+        }
+
+        // 关闭通讯弹窗与结算层
+        const radioBox = document.getElementById('radio-box');
+        if (radioBox) radioBox.style.display = 'none';
+        this.activeBeat = null;
+        if (this.typewriterTimer) clearInterval(this.typewriterTimer);
+        this.isTyping = false;
+
+        const endingScreen = document.getElementById('screen-ending');
+        if (endingScreen) endingScreen.style.display = 'none';
+        if (this.state === 'ENDING') {
+          this.state = 'RUNNING';
+        }
+      }
+
+      handleStageVictory() {
+        if (this.hasSentClear) return;
+        this.hasSentClear = true;
+        this.audio.playVictory();
+        const currentCfg = CYBER_STAGES[this.currentStage] || CYBER_STAGES[0];
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'STAGE_CLEAR',
+            stage: this.currentStage,
+            maxStage: 3,
+            title: currentCfg.title,
+            feedback: currentCfg.feedback
+          }, '*');
+        }
+        if (this.currentStage >= 2) {
+          this.triggerEnding();
+        }
       }
 
       initResize() {
@@ -1481,8 +1581,9 @@
         const btnBypass = document.getElementById('btn-bypass');
         if (btnBypass) {
           btnBypass.addEventListener('click', () => {
-            this.distance = this.maxDistance;
-            this.triggerEnding();
+            const targetDist = this.stageTargetDist || (CYBER_STAGES[this.currentStage] ? CYBER_STAGES[this.currentStage].targetDist : 3.0);
+            this.distance = targetDist;
+            this.handleStageVictory();
           });
         }
 
@@ -1787,9 +1888,10 @@
         this.currentStoryIndex++;
         this.audio.setRadioFilter(false); // 恢复 Synthwave 动态全频段
 
-        // 检查是否到达终点
-        if (this.distance >= this.maxDistance) {
-          this.triggerEnding();
+        // 检查是否到达终点或关卡目标
+        const targetDist = this.stageTargetDist || (CYBER_STAGES[this.currentStage] ? CYBER_STAGES[this.currentStage].targetDist : 3.0);
+        if (this.distance >= targetDist) {
+          this.handleStageVictory();
         }
       }
 
@@ -1888,6 +1990,12 @@
         const kmPerFrame = ((this.speed / 3600) / 60) * this.timeScale;
         this.distance += kmPerFrame * 1.6;
 
+        // 检查关卡目标距离与通关
+        const targetDist = this.stageTargetDist || (CYBER_STAGES[this.currentStage] ? CYBER_STAGES[this.currentStage].targetDist : 3.0);
+        if (this.distance >= targetDist && !this.hasSentClear) {
+          this.handleStageVictory();
+        }
+
         // 更新 HUD 界面显示
         document.getElementById('val-speed').textContent = `${Math.round(this.speed)} KM/H`;
         document.getElementById('bar-speed').style.width = `${Math.min(100, (this.speed / 180) * 100)}%`;
@@ -1898,7 +2006,7 @@
         document.getElementById('val-shield').textContent = `${Math.round(this.shield)}%`;
         document.getElementById('bar-shield').style.width = `${this.shield}%`;
 
-        document.getElementById('val-distance').textContent = `${this.distance.toFixed(2)} / ${this.maxDistance.toFixed(1)} KM`;
+        document.getElementById('val-distance').textContent = `${this.distance.toFixed(2)} / ${targetDist.toFixed(1)} KM`;
 
         // 检查剧情触发器
         this.checkStoryTriggers();

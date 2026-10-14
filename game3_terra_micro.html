@@ -1386,7 +1386,26 @@
         this.initStars();
         this.seedEntities(120);
         this.bindEvents();
-        this.startEpoch(0);
+
+        // 支持 URL ?stage=X 纪元直接定位
+        const urlParams = new URLSearchParams(window.location.search);
+        const reqStage = parseInt(urlParams.get('stage'), 10);
+        let startStage = 0;
+        if (!isNaN(reqStage) && reqStage >= 0 && reqStage < 4) {
+          startStage = reqStage;
+        }
+
+        // 监听父级 Stage HUD 的切关消息
+        window.addEventListener('message', (e) => {
+          if (e.data && e.data.type === 'SET_STAGE') {
+            const s = parseInt(e.data.stage, 10);
+            if (!isNaN(s) && s >= 0 && s < 4) {
+              this.startEpoch(s);
+            }
+          }
+        });
+
+        this.startEpoch(startStage);
 
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
@@ -1627,6 +1646,17 @@
             "你化作纯粹的意识光斑，散入无数微观生命的神念中。古老造物主的形体湮灭于虚空，而在培养皿中睁开双眼的每一个微小个体，皆成了神。"
           );
           return;
+        }
+
+        // 向父级 Stage HUD 发送通关达成消息
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'STAGE_CLEAR',
+            cartridgeId: 'game3',
+            stage: this.currentEpoch,
+            stageTitle: EPOCH_STORIES[this.currentEpoch].epochName,
+            feedback: '纪元参数演进达成，原初生命群集实现关键跃迁！'
+          }, '*');
         }
 
         // 跃迁进入下一纪元

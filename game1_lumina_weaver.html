@@ -972,7 +972,25 @@
         this.initCanvasSize();
         this.createStarfield();
         this.bindEvents();
-        this.loadLevel(0);
+
+        // 支持 URL ?stage=X 关卡直接定位
+        const urlParams = new URLSearchParams(window.location.search);
+        const reqStage = parseInt(urlParams.get('stage'), 10);
+        if (!isNaN(reqStage) && reqStage >= 0 && reqStage < LEVELS.length) {
+          this.currentLevelIdx = reqStage;
+        }
+
+        // 监听父级 Stage HUD 的切关消息
+        window.addEventListener('message', (e) => {
+          if (e.data && e.data.type === 'SET_STAGE') {
+            const s = parseInt(e.data.stage, 10);
+            if (!isNaN(s) && s >= 0 && s < LEVELS.length) {
+              this.loadLevel(s);
+            }
+          }
+        });
+
+        this.loadLevel(this.currentLevelIdx);
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
       }
@@ -1326,6 +1344,23 @@
       handleLevelVictory() {
         sound.playAscensionArpeggio();
         this.bloomFlash = 1.0; // 激发全景圣光辉光
+
+        // 向父级 Stage HUD 发送通关达成消息
+        if (window.parent && window.parent !== window) {
+          const stageFeedbacks = [
+            '晨曦折射对齐成功，星核能量蓄满 100%！',
+            '戴森环带光子锁解除，双生引力井达成谐振！',
+            '终极星火织网合拢，古老深空信标全面被唤醒！'
+          ];
+          window.parent.postMessage({
+            type: 'STAGE_CLEAR',
+            cartridgeId: 'game1',
+            stage: this.currentLevelIdx,
+            stageTitle: LEVELS[this.currentLevelIdx].name,
+            feedback: stageFeedbacks[this.currentLevelIdx] || '星区星核能量蓄满！'
+          }, '*');
+        }
+
         const storyKey = `level${this.currentLevelIdx + 1}`;
         this.playDialogueSequence(STORY_DATA[storyKey].solved, `ACT ${this.currentLevelIdx + 1}: 破译完成`, () => {
           // 对白结束后弹出跃迁横幅

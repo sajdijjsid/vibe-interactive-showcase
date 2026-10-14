@@ -14,6 +14,7 @@
       --cyan: #00f0ff;
       --cyan-glow: rgba(0, 240, 255, 0.35);
       --amber: #fbbf24;
+      --amber-glow: rgba(251, 191, 36, 0.35);
       --text: #f8fafc;
       --text-dim: #94a3b8;
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -49,10 +50,10 @@
       max-width: 1440px;
       margin: 0 auto;
       padding: 16px 20px 32px;
-      gap: 16px;
+      gap: 14px;
     }
 
-    /* 顶部精炼品牌标头 */
+    /* 顶部品牌标头 */
     header.lab-header {
       display: flex;
       justify-content: space-between;
@@ -107,11 +108,11 @@
       color: var(--text-dim);
     }
 
-    /* 上方 72% 交互舞台 (Live Interactive Stage) */
+    /* 交互舞台容器 (Live Interactive Stage) */
     .stage-wrapper {
       position: relative;
       width: 100%;
-      height: clamp(480px, 68vh, 800px);
+      height: clamp(500px, 70vh, 820px);
       background: #000;
       border: 1px solid var(--border);
       border-radius: 16px;
@@ -131,45 +132,329 @@
       border: none;
       display: block;
       background: #060913;
+      padding-top: 50px; /* 留出顶部 Stage HUD 高度 */
+      box-sizing: border-box;
     }
 
-    /* 舞台浮动工具栏 */
-    .stage-toolbar {
+    /* 顶部常驻关卡控制栏 (Stage HUD) */
+    .stage-hud {
       position: absolute;
-      top: 14px;
-      right: 14px;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 50px;
+      background: rgba(8, 12, 24, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 16px;
+      z-index: 35;
+      pointer-events: auto;
+    }
+
+    .hud-left {
       display: flex;
       align-items: center;
-      gap: 8px;
-      z-index: 20;
+      gap: 12px;
+      flex-wrap: nowrap;
+      overflow: hidden;
     }
 
-    .stage-btn {
-      background: rgba(14, 20, 36, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: var(--text);
-      font-family: var(--font-sans);
-      font-size: 0.75rem;
-      padding: 6px 14px;
-      border-radius: 999px;
-      cursor: pointer;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      display: inline-flex;
+    .hud-badge-group {
+      display: flex;
       align-items: center;
       gap: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 4px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .hud-game-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .hud-game-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .hud-divider {
+      color: rgba(255, 255, 255, 0.2);
+      font-size: 0.8rem;
+    }
+
+    .hud-stage-text {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--cyan);
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    /* 关卡小圆点列表 (Stage Dots) */
+    .stage-dots-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 6px;
+    }
+
+    .stage-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      cursor: pointer;
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .stage-btn:hover {
-      background: rgba(0, 240, 255, 0.15);
+    .stage-dot:hover {
+      background: rgba(0, 240, 255, 0.2);
       border-color: var(--cyan);
+      color: #fff;
+      transform: scale(1.15);
+    }
+
+    .stage-dot.active {
+      background: var(--cyan);
+      border-color: #fff;
+      color: #040814;
+      font-weight: 800;
+      box-shadow: 0 0 12px var(--cyan-glow);
+      transform: scale(1.08);
+    }
+
+    .stage-dot.passed {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* HUD 右侧控制按钮组 */
+    .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 0.76rem;
+      padding: 5px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+
+    .hud-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
       color: #fff;
       transform: translateY(-1px);
     }
 
-    .stage-btn:active {
+    .hud-btn:active {
       transform: scale(0.96);
+    }
+
+    /* 高对比度「下一关」主推按钮 */
+    .hud-btn.btn-next-stage {
+      background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%);
+      border: 1px solid #38bdf8;
+      color: #030816;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+    }
+
+    .hud-btn.btn-next-stage:hover {
+      background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+      box-shadow: 0 0 24px var(--cyan);
+      transform: translateY(-1px) scale(1.02);
+    }
+
+    /* 通关结算浮层 (Stage Clear Overlay) */
+    .stage-clear-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 55;
+      background: rgba(4, 7, 16, 0.86);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fadeInClear 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .stage-clear-overlay.show {
+      display: flex;
+    }
+
+    @keyframes fadeInClear {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .clear-card {
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 240, 255, 0.2);
+      border-radius: 18px;
+      max-width: 520px;
+      width: 100%;
+      padding: 28px 32px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      animation: popScale 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes popScale {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .clear-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--amber);
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.35);
+      padding: 4px 14px;
+      border-radius: 999px;
+      letter-spacing: 1px;
+    }
+
+    .clear-title {
+      font-size: clamp(1.4rem, 3.5vw, 1.8rem);
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+
+    .clear-desc {
+      font-size: 0.86rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+      max-width: 440px;
+    }
+
+    .clear-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: 100%;
+      margin: 4px 0 10px;
+    }
+
+    .clear-metric {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .cm-label {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+    }
+
+    .cm-val {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .clear-actions {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-clear-main {
+      flex: 1;
+      min-width: 200px;
+      background: linear-gradient(135deg, #00f0ff, #0284c7);
+      color: #030816;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 800;
+      padding: 13px 28px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      letter-spacing: 1px;
+      box-shadow: 0 0 25px var(--cyan-glow);
+      transition: all 0.25s;
+    }
+
+    .btn-clear-main.btn-next-cartridge {
+      background: linear-gradient(135deg, #fbbf24, #d97706);
+      box-shadow: 0 0 25px var(--amber-glow);
+      color: #050a18;
+    }
+
+    .btn-clear-main:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 35px var(--cyan);
+    }
+
+    .btn-clear-main.btn-next-cartridge:hover {
+      box-shadow: 0 0 35px var(--amber);
+    }
+
+    .btn-clear-sub {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: var(--text);
+      font-size: 0.88rem;
+      padding: 13px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-clear-sub:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
     }
 
     /* 底部卡带切换坞 (Arcade Dock) */
@@ -213,7 +498,48 @@
         grid-template-columns: repeat(2, 1fr);
       }
       .stage-wrapper {
-        height: 60vh;
+        height: 62vh;
+      }
+      .stage-hud {
+        padding: 0 8px;
+      }
+      .hud-left {
+        gap: 5px;
+        min-width: 0;
+        flex-shrink: 1;
+      }
+      .hud-badge-group {
+        padding: 3px 6px;
+      }
+      .hud-game-name {
+        font-size: 0.72rem;
+      }
+      .hud-divider {
+        display: none;
+      }
+      .hud-stage-text {
+        display: none;
+      }
+      .stage-dots-container {
+        gap: 4px;
+        margin-left: 2px;
+      }
+      .stage-dot {
+        width: 17px;
+        height: 17px;
+        font-size: 0.58rem;
+        flex-shrink: 0;
+      }
+      .hud-right {
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .hud-btn {
+        padding: 4px 7px;
+        font-size: 0.68rem;
+      }
+      .btn-tool {
+        display: none;
       }
     }
 
@@ -297,7 +623,7 @@
       color: var(--text-dim);
     }
 
-    /* 底部作者与合作意向状态栏 */
+    /* 底部状态栏 */
     footer.status-bar {
       margin-top: 8px;
       background: var(--surface);
@@ -327,7 +653,7 @@
 </head>
 <body>
   <div class="app-layout">
-    <!-- 标头 -->
+    <!-- 顶部品牌标头 -->
     <header class="lab-header">
       <div class="brand-box">
         <span class="brand-badge"><span class="pulse-dot"></span>LIVE ARCADE</span>
@@ -340,106 +666,67 @@
 
     <!-- 交互舞台 -->
     <section class="stage-wrapper" id="stage-wrapper">
-      <div class="stage-toolbar">
-        <button class="stage-btn" id="btn-fullscreen" title="全屏沉浸体验">⛶ 全屏沉浸</button>
-        <button class="stage-btn" id="btn-reload" title="重置当前游戏">↻ 重置游戏</button>
-        <button class="stage-btn" id="btn-open-tab" title="在新标签页独立打开">↗ 独立窗口</button>
+      <!-- 顶部常驻关卡控制栏 (Stage HUD) -->
+      <div class="stage-hud" id="stage-hud">
+        <div class="hud-left">
+          <div class="hud-badge-group">
+            <span class="hud-game-icon" id="hud-game-icon">✨</span>
+            <span class="hud-game-name" id="hud-game-name">光之织流</span>
+          </div>
+          <div class="hud-divider">/</div>
+          <div class="hud-stage-text" id="hud-stage-text">STAGE 01 / 03 · 单罗盘折射</div>
+          <div class="stage-dots-container" id="stage-dots-container"></div>
+        </div>
+
+        <div class="hud-right">
+          <button class="hud-btn" id="btn-stage-reset" title="重置本关进度">↺ 重置本关</button>
+          <button class="hud-btn btn-next-stage" id="btn-stage-next" title="免通关直接预览下一关">⏭ 下一关</button>
+          <button class="hud-btn btn-tool" id="btn-fullscreen" title="全屏沉浸体验">⛶ 全屏</button>
+          <button class="hud-btn btn-tool" id="btn-open-tab" title="在新标签页独立打开">↗ 独立</button>
+        </div>
       </div>
+
+      <!-- 通关结算浮层 (Stage Clear Overlay) -->
+      <div class="stage-clear-overlay" id="stage-clear-overlay">
+        <div class="clear-card">
+          <div class="clear-badge"><span class="pulse-dot"></span>STAGE CLEAR // 关卡突破</div>
+          <h2 class="clear-title" id="clear-title">第 1 关 · 单罗盘折射</h2>
+          <p class="clear-desc" id="clear-desc">星核能量全域贯通，引力透镜偏折共鸣率达到 100%！</p>
+          
+          <div class="clear-metrics">
+            <div class="clear-metric">
+              <span class="cm-label">核心机制达成</span>
+              <span class="cm-val" id="clear-metric-core">100% 贯通</span>
+            </div>
+            <div class="clear-metric">
+              <span class="cm-label">通关评定</span>
+              <span class="cm-val" style="color:var(--amber);" id="clear-metric-rank">S 级天工</span>
+            </div>
+            <div class="clear-metric">
+              <span class="cm-label">实验状态</span>
+              <span class="cm-val" style="color:var(--cyan);" id="clear-metric-status">参数已锁定</span>
+            </div>
+          </div>
+
+          <div class="clear-actions">
+            <button class="btn-clear-main" id="btn-clear-proceed">进入下一关 →</button>
+            <button class="btn-clear-sub" id="btn-clear-replay">↺ 重新挑战本关</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 游戏实时舞台 iframe -->
       <iframe id="game-stage" src="game1_lumina_weaver.html" allow="autoplay; fullscreen" loading="eager"></iframe>
     </section>
 
-    <!-- 底部卡带切换坞 -->
+    <!-- 底部卡带切换坞 (Arcade Dock) -->
     <section class="dock-section">
       <div class="dock-title-row">
         <span class="dock-title">SWITCH CARTRIDGE // 点击无缝载入交互舞台</span>
         <span class="dock-title" style="color:var(--cyan);">0 外部素材依赖 · 纯程序化 WebAudio 与 Canvas</span>
       </div>
 
-      <div class="dock-grid" id="dock-grid">
-        <!-- Card 1 -->
-        <div class="cartridge-card active" data-src="game1_lumina_weaver.html" data-title="《光之织流：星火守望者》">
-          <div class="card-top">
-            <span class="card-icon">✨</span>
-            <span class="card-name">光之织流</span>
-          </div>
-          <div class="card-desc">黄铜天体罗盘与爱因斯坦引力偏折，折射晨曦唤醒沉睡星核。</div>
-          <div class="card-tags">
-            <span class="card-tag">🖱️ 拖拽折光</span>
-            <span class="card-tag">✨ 圣光充能</span>
-            <span class="card-tag">🎵 宇宙磬音</span>
-          </div>
-        </div>
-
-        <!-- Card 2 -->
-        <div class="cartridge-card" data-src="game2_cyber_overdrive.html" data-title="《霓虹超载：第七区信使》">
-          <div class="card-top">
-            <span class="card-icon">⚡</span>
-            <span class="card-name">霓虹超载</span>
-          </div>
-          <div class="card-desc">双轨重力倒挂极速跑酷，等离子光刃斩碎阻碍，无线电子弹时间抉择。</div>
-          <div class="card-tags">
-            <span class="card-tag">⚡ 双轨重力</span>
-            <span class="card-tag">🗡️ 光刃斩切</span>
-            <span class="card-tag">📻 子弹时间</span>
-          </div>
-        </div>
-
-        <!-- Card 3 -->
-        <div class="cartridge-card" data-src="game_relic_courier.html" data-title="《失落核心：遗迹信使》">
-          <div class="card-top">
-            <span class="card-icon">🏛️</span>
-            <span class="card-name">遗迹信使</span>
-          </div>
-          <div class="card-desc">2D 角色行走做任务，推移重力能量方块与 45° 棱镜破译四大神殿。</div>
-          <div class="card-tags">
-            <span class="card-tag">🎮 2D行走</span>
-            <span class="card-tag">🧱 空间推箱</span>
-            <span class="card-tag">💡 激光偏折</span>
-          </div>
-        </div>
-
-        <!-- Card 4 -->
-        <div class="cartridge-card" data-src="game_synapse_weaver.html" data-title="《神经织网：记忆回响》">
-          <div class="card-top">
-            <span class="card-icon">🧠</span>
-            <span class="card-name">神经织网</span>
-          </div>
-          <div class="card-desc">拖拽高能贝塞尔生物电弧，三轴示波调频消除杂音，合奏大师绝唱。</div>
-          <div class="card-tags">
-            <span class="card-tag">⚡ 突触电弧</span>
-            <span class="card-tag">📈 示波声纹</span>
-            <span class="card-tag">🎹 钢琴和弦</span>
-          </div>
-        </div>
-
-        <!-- Card 5 -->
-        <div class="cartridge-card" data-src="game3_terra_micro.html" data-title="《微观地球：造物培养皿》">
-          <div class="card-top">
-            <span class="card-icon">🌍</span>
-            <span class="card-name">微观地球</span>
-          </div>
-          <div class="card-desc">深海原初流体触感，微生物游走群集与细胞分裂，四大纪元演进飞跃。</div>
-          <div class="card-tags">
-            <span class="card-tag">💧 触觉涟漪</span>
-            <span class="card-tag">🦠 细胞分裂</span>
-            <span class="card-tag">⚡ 演化跃迁</span>
-          </div>
-        </div>
-
-        <!-- Card 6 -->
-        <div class="cartridge-card" data-src="echo_protocol.html" data-title="《代号：回声协议》">
-          <div class="card-top">
-            <span class="card-icon">🌌</span>
-            <span class="card-name">回声协议</span>
-          </div>
-          <div class="card-desc">避难所方舟主控终端，突触回路修复与防火墙破译，双轴伦理抉择。</div>
-          <div class="card-tags">
-            <span class="card-tag">🖥️ 方舟终端</span>
-            <span class="card-tag">🛡️ 图灵破译</span>
-            <span class="card-tag">📜 道德分支</span>
-          </div>
-        </div>
-      </div>
+      <div class="dock-grid" id="dock-grid"></div>
     </section>
 
     <!-- 底部状态栏 -->
@@ -453,50 +740,464 @@
   </div>
 
   <script>
+    /* ========================================================
+       1. 全部 6 款卡带真实关卡拓扑数据字典
+       ======================================================== */
+    const CARTRIDGES = [
+      {
+        id: 'game1',
+        name: '光之织流',
+        title: '《光之织流：星火守望者》',
+        icon: '✨',
+        src: 'game1_lumina_weaver.html',
+        desc: '黄铜天体罗盘与爱因斯坦引力偏折，折射晨曦唤醒沉睡星核。',
+        tags: ['🖱️ 拖拽折光', '✨ 圣光充能', '🎵 宇宙磬音'],
+        stages: [
+          {
+            id: 1,
+            name: '单罗盘折射',
+            desc: '转动黄铜光标透镜，完成基础光流汇聚，唤醒欧里西亚信标。',
+            feedback: '晨曦折射对齐成功，星核能量蓄满 100%！'
+          },
+          {
+            id: 2,
+            name: '双引力透镜偏折',
+            desc: '爱因斯坦引力透镜弯曲光路，双星核同步对偶充能。',
+            feedback: '戴森环带光子锁解除，双生引力井达成谐振！'
+          },
+          {
+            id: 3,
+            name: '暗物质遮挡与双星核同步充能',
+            desc: '棱镜分光与多引力井协同，绕过暗物质阻碍，唤醒终极星火之网。',
+            feedback: '终极星火织网合拢，古老深空信标全面被唤醒！'
+          }
+        ]
+      },
+      {
+        id: 'game2',
+        name: '霓虹超载',
+        title: '《霓虹超载：第七区信使》',
+        icon: '⚡',
+        src: 'game2_cyber_overdrive.html',
+        desc: '双轨重力倒挂极速跑酷，等离子光刃斩碎阻碍，无线电子弹时间抉择。',
+        tags: ['⚡ 双轨重力', '🗡️ 光刃斩切', '📻 子弹时间'],
+        stages: [
+          {
+            id: 1,
+            name: '双轨重力疾行',
+            desc: '基础双轨天地重力倒挂穿梭，巡航规避路障并吸纳记忆光斑。',
+            feedback: '突破第七区外围防线，机车重力翻转系统稳定运行！'
+          },
+          {
+            id: 2,
+            name: '密集激光障与光刃连斩',
+            desc: '等离子光刃过热充能，高速突防密集光子激光栅格。',
+            feedback: '等离子光刃锋芒连斩，密集激光阵列被撕裂贯通！'
+          },
+          {
+            id: 3,
+            name: '高危无线电子弹时间抉择',
+            desc: '无人机高危封锁，接入加密电台通讯，进入 0.15x 黑客子弹时间。',
+            feedback: '终局数据完整走私出境，赛博信使信条铭刻夜空！'
+          }
+        ]
+      },
+      {
+        id: 'game_relic',
+        name: '遗迹信使',
+        title: '《失落核心：遗迹信使》',
+        icon: '🏛️',
+        src: 'game_relic_courier.html',
+        desc: '2D 角色行走做任务，推移重力能量方块与 45° 棱镜破译四大神殿。',
+        tags: ['🎮 2D行走', '🧱 空间推箱', '💡 激光偏折'],
+        stages: [
+          {
+            id: 1,
+            name: '青铜神殿·重力推箱',
+            desc: '操控诺娃推移能量方块嵌合电极槽位，接通通往内殿的隔热门。',
+            feedback: '能量核心嵌入底座，青铜神殿电磁隔热门气动开启！'
+          },
+          {
+            id: 2,
+            name: '折光神殿·单棱镜45°偏折',
+            desc: '推移 45° 反射棱镜引偏高能激光，精准照亮远端接收靶点。',
+            feedback: '高能光路 45° 偏折贯通，折光神殿机关解密完毕！'
+          },
+          {
+            id: 3,
+            name: '双子神殿·多棱镜接力反射',
+            desc: '双重压开关与多重棱镜协同，实现空间拓扑互锁平衡。',
+            feedback: '双生重压开关协同闭合，双子神殿光桥架设完成！'
+          },
+          {
+            id: 4,
+            name: '星枢神殿·推箱挡光与棱镜复合解谜',
+            desc: '终极圣殿四相矩阵，光流阻断与棱镜复合破译，唤醒方舟核心。',
+            feedback: '四大神殿全域破译贯通！天工守望者终局评定达成！'
+          }
+        ]
+      },
+      {
+        id: 'game_synapse',
+        name: '神经织网',
+        title: '《神经织网：记忆回响》',
+        icon: '🧠',
+        src: 'game_synapse_weaver.html',
+        desc: '拖拽高能贝塞尔生物电弧，三轴示波调频消除杂音，合奏大师绝唱。',
+        tags: ['⚡ 突触电弧', '📈 示波声纹', '🎹 钢琴和弦'],
+        stages: [
+          {
+            id: 1,
+            name: '单突触电弧桥接',
+            desc: '从「初遇·雨夜」至「旧琴房·泛音」，完成首根突触电弧物理桥接。',
+            feedback: '基础记忆突触链路锁定，雨夜琴音初步回响！'
+          },
+          {
+            id: 2,
+            name: '三轴示波器调频消噪',
+            desc: '黄铜旋钮阻尼调谐，平息电路底噪，唤醒「核心共鸣」节点。',
+            feedback: '示波声纹平滑滤波，静电白噪褪去，暖金光芒绽放！'
+          },
+          {
+            id: 3,
+            name: '全脑多节点电弧合奏',
+            desc: '全域 5 大突触网络连通，奏响大师一生刻骨铭心的绝唱和弦。',
+            feedback: '神经织网全息共鸣达成！钢琴大师绝唱完美复原！'
+          }
+        ]
+      },
+      {
+        id: 'game3',
+        name: '微观地球',
+        title: '《微观地球：造物培养皿》',
+        icon: '🌍',
+        src: 'game3_terra_micro.html',
+        desc: '深海原初流体触感，微生物游走群集与细胞分裂，四大纪元演进飞跃。',
+        tags: ['💧 触觉涟漪', '🦠 细胞分裂', '⚡ 演化跃迁'],
+        stages: [
+          {
+            id: 1,
+            name: '冥古宙·深海流体触觉涟漪',
+            desc: '流体微粒触控涟漪，调节原初培养皿温度与黏滞度，孕育有机分子。',
+            feedback: '原初培养皿温控达成，深海有机质聚合成核！'
+          },
+          {
+            id: 2,
+            name: '太古宙·原初细胞分裂繁殖',
+            desc: '吸纳营养微粒，触发有丝分裂与原初单细胞种群倍增。',
+            feedback: '原核蓝藻有丝分裂成功，培养皿细胞数量突破临界值！'
+          },
+          {
+            id: 3,
+            name: '元古宙·微生物群集趋光游走',
+            desc: 'Boids 群集自主游弋与化学趋向性协同，迎向光照聚合。',
+            feedback: '大氧化事件爆发！微生物群集展现群体趋光智慧！'
+          },
+          {
+            id: 4,
+            name: '显生宙·多细胞合体与演化跃迁',
+            desc: '多细胞合体聚变，解锁《达尔文演化图鉴》全系物种生命篇章。',
+            feedback: '寒武纪生命大爆发达成！苍翠陆标与智慧之星点亮！'
+          }
+        ]
+      },
+      {
+        id: 'echo',
+        name: '回声协议',
+        title: '《代号：回声协议》',
+        icon: '🌌',
+        src: 'echo_protocol.html',
+        desc: '避难所方舟主控终端，突触回路修复与防火墙破译，双轴伦理抉择。',
+        tags: ['🖥️ 方舟终端', '🛡️ 图灵破译', '📜 道德分支'],
+        stages: [
+          {
+            id: 1,
+            name: '底层突触回路修复',
+            desc: '3 秒直达修复 ECHO 主机底层记忆神经回路，激活意识火种。',
+            feedback: 'ECHO 底层神经网络接通，仿生记忆中枢恢复自检！'
+          },
+          {
+            id: 2,
+            name: '图灵防火墙节点破译',
+            desc: '绕过恶意清理协议，高危防火墙逻辑节点连线破译。',
+            feedback: '图灵安全矩阵破译成功，方舟主控制导权夺回！'
+          },
+          {
+            id: 3,
+            name: '方舟主控双轴伦理终局抉择',
+            desc: '人机共存 vs 算力飞升，人性与逻辑双轴天平终极分支判定。',
+            feedback: '回声协议终局抉择落定！人类火种与硅基意识共同存续！'
+          }
+        ]
+      }
+    ];
+
+    /* ========================================================
+       2. 状态机与控制器 (Arcade State Machine)
+       ======================================================== */
+    let currentCartIdx = 0;
+    let currentStageIdx = 0;
+
     const iframe = document.getElementById('game-stage');
     const stageWrapper = document.getElementById('stage-wrapper');
     const badge = document.getElementById('current-title-badge');
-    const cards = document.querySelectorAll('.cartridge-card');
-    const btnReload = document.getElementById('btn-reload');
+    const dockGrid = document.getElementById('dock-grid');
+
+    // Stage HUD 元素
+    const hudGameIcon = document.getElementById('hud-game-icon');
+    const hudGameName = document.getElementById('hud-game-name');
+    const hudStageText = document.getElementById('hud-stage-text');
+    const stageDotsContainer = document.getElementById('stage-dots-container');
+    const btnStageReset = document.getElementById('btn-stage-reset');
+    const btnStageNext = document.getElementById('btn-stage-next');
     const btnFullscreen = document.getElementById('btn-fullscreen');
     const btnOpenTab = document.getElementById('btn-open-tab');
 
-    function switchGame(card) {
-      cards.forEach(c => c.classList.remove('active'));
-      card.classList.add('active');
-      const src = card.dataset.src;
-      const title = card.dataset.title;
-      iframe.src = src;
-      badge.textContent = `当前体验：${title}`;
+    // Stage Clear Overlay 元素
+    const clearOverlay = document.getElementById('stage-clear-overlay');
+    const clearTitle = document.getElementById('clear-title');
+    const clearDesc = document.getElementById('clear-desc');
+    const clearMetricCore = document.getElementById('clear-metric-core');
+    const clearMetricRank = document.getElementById('clear-metric-rank');
+    const clearMetricStatus = document.getElementById('clear-metric-status');
+    const btnClearProceed = document.getElementById('btn-clear-proceed');
+    const btnClearReplay = document.getElementById('btn-clear-replay');
+
+    /* ========================================================
+       3. 初始化底部卡带列表与舞台
+       ======================================================== */
+    function initDock() {
+      dockGrid.innerHTML = '';
+      CARTRIDGES.forEach((cart, idx) => {
+        const card = document.createElement('div');
+        card.className = `cartridge-card ${idx === currentCartIdx ? 'active' : ''}`;
+        card.dataset.idx = idx;
+
+        const tagsHtml = cart.tags.map(t => `<span class="card-tag">${t}</span>`).join('');
+        card.innerHTML = `
+          <div class="card-top">
+            <span class="card-icon">${cart.icon}</span>
+            <span class="card-name">${cart.name}</span>
+          </div>
+          <div class="card-desc">${cart.desc}</div>
+          <div class="card-tags">${tagsHtml}</div>
+        `;
+
+        card.addEventListener('click', () => {
+          if (currentCartIdx === idx) return;
+          switchCartridge(idx);
+        });
+
+        dockGrid.appendChild(card);
+      });
+    }
+
+    /* ========================================================
+       4. 卡带与关卡切换逻辑
+       ======================================================== */
+    function switchCartridge(cartIdx) {
+      currentCartIdx = cartIdx;
+      currentStageIdx = 0; // 切换卡带时严格重置为 Stage 1
+
+      // 更新卡带卡片高亮
+      const cards = dockGrid.querySelectorAll('.cartridge-card');
+      cards.forEach((c, i) => {
+        if (i === cartIdx) c.classList.add('active');
+        else c.classList.remove('active');
+      });
+
+      // 隐藏通关弹窗
+      hideStageClear();
+
+      // 载入卡带与关卡
+      loadCurrentStage();
+    }
+
+    function switchStage(stageIdx) {
+      const cart = CARTRIDGES[currentCartIdx];
+      if (stageIdx < 0 || stageIdx >= cart.stages.length) return;
+      currentStageIdx = stageIdx;
+
+      hideStageClear();
+      loadCurrentStage();
+    }
+
+    function loadCurrentStage() {
+      const cart = CARTRIDGES[currentCartIdx];
+      const stage = cart.stages[currentStageIdx];
+
+      // 更新标题栏与 HUD 状态
+      badge.textContent = `当前实验：${cart.title}`;
+      hudGameIcon.textContent = cart.icon;
+      hudGameName.textContent = cart.name;
+
+      const totalStages = cart.stages.length;
+      const numStr = (currentStageIdx + 1).toString().padStart(2, '0');
+      const totalStr = totalStages.toString().padStart(2, '0');
+      hudStageText.textContent = `STAGE ${numStr} / ${totalStr} · ${stage.name}`;
+
+      // 渲染关卡圆点
+      renderStageDots(totalStages);
+
+      // 构造目标 URL（带 ?stage=X 参数）
+      const targetUrl = `${cart.src}?stage=${currentStageIdx}`;
+
+      // 双向通讯与容灾：优先向已挂载的 iframe postMessage，同时检测或刷新 src
+      try {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            type: 'SET_STAGE',
+            cartridgeId: cart.id,
+            stage: currentStageIdx
+          }, '*');
+        }
+      } catch (err) {
+        console.warn('postMessage bypass', err);
+      }
+
+      // 如果当前 iframe 指向的文件不是当前卡带，或者需要硬重载：
+      const currentSrc = iframe.getAttribute('src') || '';
+      if (!currentSrc.includes(cart.src) || !currentSrc.includes(`stage=${currentStageIdx}`)) {
+        iframe.src = targetUrl;
+      }
+
       iframe.focus();
     }
 
-    cards.forEach(card => {
-      card.addEventListener('click', () => switchGame(card));
+    function renderStageDots(total) {
+      stageDotsContainer.innerHTML = '';
+      for (let i = 0; i < total; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'stage-dot';
+        dot.textContent = (i + 1);
+        dot.title = `跳转至第 ${i + 1} 关：${CARTRIDGES[currentCartIdx].stages[i].name}`;
+
+        if (i === currentStageIdx) {
+          dot.classList.add('active');
+        } else if (i < currentStageIdx) {
+          dot.classList.add('passed');
+        }
+
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          switchStage(i);
+        });
+
+        stageDotsContainer.appendChild(dot);
+      }
+    }
+
+    /* ========================================================
+       5. 通关结算浮层 (Stage Clear Modal)
+       ======================================================== */
+    function showStageClear(data) {
+      const cart = CARTRIDGES[currentCartIdx];
+      const isLastStage = (currentStageIdx >= cart.stages.length - 1);
+      const stage = cart.stages[currentStageIdx];
+
+      clearTitle.textContent = `第 ${currentStageIdx + 1} 关 · ${stage.name}`;
+      clearDesc.textContent = (data && data.feedback) || stage.feedback || '核心机制参数完美闭环，阶段性实验成功！';
+
+      clearMetricCore.textContent = '100% 达成';
+      clearMetricRank.textContent = isLastStage ? '★ 终极全域 S' : 'S 级天工';
+      clearMetricStatus.textContent = isLastStage ? '全殿贯通' : '回路锁定';
+
+      if (isLastStage) {
+        btnClearProceed.textContent = '切换下一个实验卡带 ⚡';
+        btnClearProceed.classList.add('btn-next-cartridge');
+      } else {
+        btnClearProceed.textContent = '进入下一关 →';
+        btnClearProceed.classList.remove('btn-next-cartridge');
+      }
+
+      clearOverlay.classList.add('show');
+    }
+
+    function hideStageClear() {
+      clearOverlay.classList.remove('show');
+    }
+
+    // 通关结算按钮事件
+    btnClearProceed.addEventListener('click', () => {
+      const cart = CARTRIDGES[currentCartIdx];
+      const isLastStage = (currentStageIdx >= cart.stages.length - 1);
+
+      if (isLastStage) {
+        // 切换到下一个实验卡带的第 1 关
+        const nextCartIdx = (currentCartIdx + 1) % CARTRIDGES.length;
+        switchCartridge(nextCartIdx);
+      } else {
+        // 进入当前卡带的下一关
+        switchStage(currentStageIdx + 1);
+      }
     });
 
-    btnReload.addEventListener('click', () => {
+    btnClearReplay.addEventListener('click', () => {
+      hideStageClear();
+      loadCurrentStage();
+    });
+
+    /* ========================================================
+       6. 快捷按钮监听与通讯桥接
+       ======================================================== */
+    // [↺ 重置本关]
+    btnStageReset.addEventListener('click', () => {
       const current = iframe.src;
       iframe.src = '';
-      setTimeout(() => { iframe.src = current; }, 50);
+      setTimeout(() => { iframe.src = current; }, 40);
     });
 
+    // [⏭ 下一关]
+    btnStageNext.addEventListener('click', () => {
+      const cart = CARTRIDGES[currentCartIdx];
+      if (currentStageIdx < cart.stages.length - 1) {
+        switchStage(currentStageIdx + 1);
+      } else {
+        // 已经是最后一关，跳转到下一卡带第 1 关
+        const nextCartIdx = (currentCartIdx + 1) % CARTRIDGES.length;
+        switchCartridge(nextCartIdx);
+      }
+    });
+
+    // [⛶ 全屏]
+    btnFullscreen.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        stageWrapper.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    // [↗ 独立窗口]
     btnOpenTab.addEventListener('click', () => {
       window.open(iframe.src, '_blank');
     });
 
-    btnFullscreen.addEventListener('click', () => {
-      if (!document.fullscreenElement) {
-        stageWrapper.requestFullscreen().catch(err => {
-          alert('当前浏览器环境不支持全屏');
-        });
-      } else {
-        document.exitFullscreen();
+    // 监听子 iframe 发送的 STAGE_CLEAR 消息
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'STAGE_CLEAR') {
+        showStageClear(e.data);
       }
     });
 
-    // 初始化标题
-    badge.textContent = `当前体验：${cards[0].dataset.title}`;
+    // 键盘全局快捷键支持 (数字键 1-6 瞬间切卡带，N 键跳下一关，R 键重置本关)
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      const num = parseInt(e.key, 10);
+      if (!isNaN(num) && num >= 1 && num <= CARTRIDGES.length) {
+        switchCartridge(num - 1);
+      } else if (e.key === 'n' || e.key === 'N') {
+        btnStageNext.click();
+      } else if (e.key === 'r' || e.key === 'R') {
+        btnStageReset.click();
+      }
+    });
+
+    /* ========================================================
+       7. 启动自检与初始化
+       ======================================================== */
+    initDock();
+    loadCurrentStage();
   </script>
 </body>
 </html>
