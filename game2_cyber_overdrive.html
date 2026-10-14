@@ -926,6 +926,19 @@
         this.initialized = true;
       }
 
+      setRadioFilter(isRadioActive) {
+        if (!this.ctx || !this.filterNode) return;
+        const t = this.ctx.currentTime;
+        this.filterNode.frequency.cancelScheduledValues(t);
+        if (isRadioActive) {
+          // 通讯接入：背景引擎与音乐瞬间经过 450Hz 低通滤波，模拟头盔电台与绝密通讯的沉浸听感
+          this.filterNode.frequency.exponentialRampToValueAtTime(420, t + 0.3);
+        } else {
+          // 通讯挂断：扫频恢复到 3800Hz 纯正 Synthwave 亮丽高频
+          this.filterNode.frequency.exponentialRampToValueAtTime(3800, t + 0.35);
+        }
+      }
+
       startBgmSequencer() {
         const interval = (60 / this.tempo / 4) * 1000; // 16th notes
         this.timer = setInterval(() => {
@@ -1130,6 +1143,40 @@
         gain.connect(this.masterGain);
         osc.start(t);
         osc.stop(t + 0.2);
+      }
+
+      // 赛博等离子光刃破障斩切音效 (极度清脆爽快的电子刀光与冲击爆鸣)
+      playSlashSfx() {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, t);
+        osc.frequency.exponentialRampToValueAtTime(110, t + 0.12);
+        gain.gain.setValueAtTime(0.45, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.14);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(t);
+        osc.stop(t + 0.14);
+
+        const bufferSize = this.ctx.sampleRate * 0.08;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(2800, t);
+        const nGain = this.ctx.createGain();
+        nGain.gain.setValueAtTime(0.3, t);
+        nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        noise.connect(filter);
+        filter.connect(nGain);
+        nGain.connect(this.masterGain);
+        noise.start(t);
       }
 
       toggleMute() {
@@ -1602,6 +1649,7 @@
       triggerRadioBeat(beat) {
         this.activeBeat = beat;
         this.audio.playRadioBeep();
+        this.audio.setRadioFilter(true); // 沉浸式头盔电台滤波
 
         const radioBox = document.getElementById('radio-box');
         const radioName = document.getElementById('radio-name');
@@ -1700,6 +1748,7 @@
         document.getElementById('radio-box').style.display = 'none';
         this.activeBeat = null;
         this.currentStoryIndex++;
+        this.audio.setRadioFilter(false); // 恢复 Synthwave 动态全频段
 
         // 检查是否到达终点
         if (this.distance >= this.maxDistance) {
@@ -1866,11 +1915,30 @@
             this.player.y + pad < obs.y + obs.height - pad &&
             this.player.y + this.player.height - pad > obs.y + pad
           ) {
-            // 撞击扣盾 (心流模式仅扣 10%，硬核扣 18%)
+            // 【极度爽快核心操作反馈】：超载冲刺期间等离子光刃出鞘，直接斩碎一切障碍！
+            if (this.player.overdriveTimer > 0) {
+              this.audio.playSlashSfx();
+              this.shake = 15;
+              for (let s = 0; s < 25; s++) {
+                this.particles.push({
+                  x: obs.x + obs.width / 2,
+                  y: obs.y + obs.height / 2,
+                  vx: (Math.random() - 0.5) * 16 + 8,
+                  vy: (Math.random() - 0.5) * 16,
+                  life: 1,
+                  color: s % 2 === 0 ? '#ff0055' : '#00f3ff'
+                });
+              }
+              this.obstacles.splice(i, 1);
+              continue;
+            }
+
+            // 常规撞击扣盾 (心流模式仅扣 10%，硬核扣 18%)
             const damage = this.difficultyMode === 'FLOW' ? 10 : 18;
             this.shield = Math.max(0, this.shield - damage);
             this.invulnerableTimer = 75; // 赋予 1.25 秒无敌保护帧！
             this.audio.playHitSfx();
+            this.shake = 10;
             this.obstacles.splice(i, 1);
 
             // 撞击火花粒子
@@ -1956,6 +2024,16 @@
       render() {
         this.ctx.clearRect(0, 0, this.width, this.height);
 
+        // 电影级受击与冲刺屏幕震颤 (Screen Shake)
+        let shakeX = 0, shakeY = 0;
+        if (this.shake > 0.1) {
+          shakeX = (Math.random() - 0.5) * this.shake;
+          shakeY = (Math.random() - 0.5) * this.shake;
+          this.shake *= 0.88;
+        }
+        this.ctx.save();
+        this.ctx.translate(shakeX, shakeY);
+
         // 1. 赛博九龙远景与天际线渐变
         const bgGrad = this.ctx.createLinearGradient(0, 0, 0, this.height);
         bgGrad.addColorStop(0, '#020308');
@@ -2039,6 +2117,8 @@
           this.ctx.font = '11px monospace';
           this.ctx.fillText('⚡ BULLET TIME // 神经子弹时间 · 优雅阅读与决策中', 20, Math.max(14, barH - 12));
         }
+
+        this.ctx.restore();
       }
 
       renderPerspectiveGrid() {
@@ -2137,6 +2217,23 @@
         // 驾驶员全息护目镜
         this.ctx.fillStyle = '#ffe600';
         this.ctx.fillRect(this.player.width * 0.45, this.player.height * 0.2, 8, 3);
+
+        // 超载冲刺：等离子光刃出鞘
+        if (this.player.overdriveTimer > 0) {
+          this.ctx.save();
+          this.ctx.strokeStyle = '#ff0055';
+          this.ctx.shadowColor = '#ff0055';
+          this.ctx.shadowBlur = 18;
+          this.ctx.lineWidth = 3;
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.player.width, this.player.height * 0.4);
+          this.ctx.quadraticCurveTo(this.player.width + 36, this.player.height * 0.1, this.player.width + 48, this.player.height * 0.5);
+          this.ctx.quadraticCurveTo(this.player.width + 28, this.player.height * 0.8, this.player.width, this.player.height * 0.7);
+          this.ctx.fillStyle = 'rgba(255, 0, 85, 0.35)';
+          this.ctx.fill();
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
 
         this.ctx.restore();
       }

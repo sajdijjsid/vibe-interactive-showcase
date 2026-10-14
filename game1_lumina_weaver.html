@@ -965,6 +965,10 @@
         this.autoTimer = null;
         this.isLevelSolved = false;
 
+        // 电影级视效与转场过渡状态
+        this.warpTransition = 0; // 曲率跳跃拉伸过渡
+        this.bloomFlash = 0;     // 唤醒圣光柔和泛光
+
         this.initCanvasSize();
         this.createStarfield();
         this.bindEvents();
@@ -997,6 +1001,9 @@
 
       loadLevel(idx, isResize = false) {
         this.currentLevelIdx = idx;
+        if (!isResize) {
+          this.warpTransition = 1.0; // 触发曲率跳跃电影级动效
+        }
         const template = LEVELS[idx];
 
         // 智能安全视口与等比投影 (全面自适应手机竖屏 360~430px、折叠屏与 4K 超宽屏，零出界风险)
@@ -1285,6 +1292,7 @@
 
       handleLevelVictory() {
         sound.playAscensionArpeggio();
+        this.bloomFlash = 1.0; // 激发全景圣光辉光
         const storyKey = `level${this.currentLevelIdx + 1}`;
         this.playDialogueSequence(STORY_DATA[storyKey].solved, `ACT ${this.currentLevelIdx + 1}: 破译完成`, () => {
           // 对白结束后弹出跃迁横幅
@@ -1304,21 +1312,67 @@
 
       render() {
         this.ctx.clearRect(0, 0, this.width, this.height);
+        const cx = this.width / 2;
+        const cy = this.height / 2;
 
-        // 1. 绘制深空背景星宿
+        // 1. 绘制深空背景星宿与曲率跃迁电影级流线
+        const warpActive = this.warpTransition > 0;
+        const warpSpeed = this.warpTransition * 28;
+
         for (const s of this.stars) {
-          this.ctx.fillStyle = s.hue === 190 ? `rgba(0, 240, 255, ${s.alpha})` : `rgba(255, 230, 180, ${s.alpha})`;
-          this.ctx.beginPath();
-          this.ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-          this.ctx.fill();
+          if (warpActive) {
+            const dx = s.x - cx;
+            const dy = s.y - cy;
+            const dist = Math.hypot(dx, dy) || 1;
+            const nx = dx / dist;
+            const ny = dy / dist;
+            s.x += nx * warpSpeed;
+            s.y += ny * warpSpeed;
+            if (s.x < 0 || s.x > this.width || s.y < 0 || s.y > this.height) {
+              s.x = cx + (Math.random() - 0.5) * 60;
+              s.y = cy + (Math.random() - 0.5) * 60;
+            }
+            this.ctx.strokeStyle = `rgba(0, 240, 255, ${this.warpTransition * 0.75})`;
+            this.ctx.lineWidth = 1.6;
+            this.ctx.beginPath();
+            this.ctx.moveTo(s.x, s.y);
+            this.ctx.lineTo(s.x - nx * warpSpeed * 2, s.y - ny * warpSpeed * 2);
+            this.ctx.stroke();
+          } else {
+            this.ctx.fillStyle = s.hue === 190 ? `rgba(0, 240, 255, ${s.alpha})` : `rgba(255, 230, 180, ${s.alpha})`;
+            this.ctx.beginPath();
+            this.ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+            this.ctx.fill();
+          }
+        }
+        if (this.warpTransition > 0) {
+          this.warpTransition = Math.max(0, this.warpTransition - 0.03);
         }
 
-        // 2. 绘制引力井微透镜畸变环 (Einstein Rings)
+        // 2. 星座星辉连线 (Constellation Trace 唯美几何织流)
+        if (this.isLevelSolved && this.levelState) {
+          this.ctx.save();
+          this.ctx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+          this.ctx.lineWidth = 1.6;
+          this.ctx.setLineDash([6, 6]);
+          this.ctx.shadowColor = '#fbbf24';
+          this.ctx.shadowBlur = 12;
+          this.ctx.beginPath();
+          const nodes = [this.levelState.emitter, ...this.levelState.mirrors, ...this.levelState.cores];
+          for (let i = 0; i < nodes.length - 1; i++) {
+            this.ctx.moveTo(nodes[i].x, nodes[i].y);
+            this.ctx.lineTo(nodes[i+1].x, nodes[i+1].y);
+          }
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
+
+        // 3. 绘制引力井微透镜畸变环 (Einstein Rings)
         for (const well of this.levelState.gravityWells) {
           this.drawGravityWell(well);
         }
 
-        // 3. 绘制星轨反射镜与棱镜
+        // 4. 绘制星轨反射镜与棱镜
         for (const mirror of this.levelState.mirrors) {
           this.drawMirror(mirror);
         }
@@ -1326,22 +1380,22 @@
           this.drawPrism(prism);
         }
 
-        // 4. 绘制聚光星核
+        // 5. 绘制聚光星核
         for (const core of this.levelState.cores) {
           this.drawCore(core);
         }
 
-        // 5. 绘制连续光束织流 (高光线芯 + 霓虹漫射光晕)
+        // 6. 绘制连续光束织流 (高光线芯 + 霓虹漫射光晕)
         if (this.activePaths) {
           for (const path of this.activePaths) {
             this.drawBeamPath(path.points, path.color);
           }
         }
 
-        // 6. 绘制发射源
+        // 7. 绘制发射源
         this.drawEmitter(this.levelState.emitter);
 
-        // 7. 绘制交互粒子
+        // 8. 绘制交互粒子
         for (const p of this.particles) {
           this.ctx.fillStyle = p.color;
           this.ctx.globalAlpha = p.alpha;
@@ -1350,6 +1404,20 @@
           this.ctx.fill();
         }
         this.ctx.globalAlpha = 1.0;
+
+        // 9. 终极觉醒圣光柔和泛光 (Golden Ascension Bloom Flash)
+        if (this.bloomFlash > 0) {
+          this.ctx.save();
+          this.ctx.globalAlpha = this.bloomFlash * 0.45;
+          const flashGrad = this.ctx.createRadialGradient(cx, cy, 20, cx, cy, Math.max(this.width, this.height) * 0.75);
+          flashGrad.addColorStop(0, 'rgba(255, 248, 220, 0.95)');
+          flashGrad.addColorStop(0.35, 'rgba(0, 240, 255, 0.45)');
+          flashGrad.addColorStop(1, 'rgba(10, 15, 30, 0)');
+          this.ctx.fillStyle = flashGrad;
+          this.ctx.fillRect(0, 0, this.width, this.height);
+          this.ctx.restore();
+          this.bloomFlash = Math.max(0, this.bloomFlash - 0.02);
+        }
       }
 
       drawBeamPath(points, color) {

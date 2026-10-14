@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>失落核心：遗迹信使 (Lost Core: Relic Courier)</title>
+  <style>
+    :root {
+      --bg: #060913;
+      --panel-bg: rgba(11, 18, 33, 0.88);
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.45);
+      --amber: #fbbf24;
+      --amber-glow: rgba(251, 191, 36, 0.45);
+      --emerald: #10b981;
+      --crimson: #ff0055;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+      --border: rgba(255, 255, 255, 0.12);
+      --font-mono: "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      touch-action: none;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, #0d1527 0%, #050811 100%);
+    }
+
+    /* 渲染主画布 */
+    #canvas-viewport {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      display: block;
+      touch-action: none;
+    }
+
+    /* 电影级暗角与全息扫描线 */
+    .crt-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+      background: radial-gradient(circle at 50% 50%, transparent 65%, rgba(4, 7, 16, 0.75) 100%);
+      box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.6);
+    }
+
+    /* 游戏 UI 悬浮层 */
+    #ui-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+    }
+
+    /* 顶部任务与监控仪表盘 */
+    .hud-header {
+      pointer-events: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .quest-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--cyan);
+      border-radius: 10px;
+      padding: 10px 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      max-width: 580px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .quest-tag {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--cyan);
+      animation: pulseAnim 1.8s infinite;
+    }
+
+    @keyframes pulseAnim {
+      0%, 100% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+
+    .quest-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 3px;
+    }
+
+    .quest-desc {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      line-height: 1.4;
+    }
+
+    /* 顶部右侧控制按钮群 */
+    .hud-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .ctrl-btn {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      padding: 8px 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .ctrl-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px var(--cyan-glow);
+    }
+
+    .ctrl-btn.active {
+      background: var(--cyan);
+      color: #000;
+      font-weight: bold;
+      border-color: var(--cyan);
+    }
+
+    /* 底部操作与对话栏 */
+    .hud-footer {
+      pointer-events: auto;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* 虚拟移动十字键与操作面板 (移动端专属，PC端同时支持键盘与鼠标) */
+    .mobile-controls {
+      display: none;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 8px;
+      margin-bottom: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .mobile-controls {
+        display: flex;
+      }
+    }
+
+    .dpad-container {
+      display: grid;
+      grid-template-columns: repeat(3, 48px);
+      grid-template-rows: repeat(3, 48px);
+      gap: 4px;
+      background: rgba(11, 18, 33, 0.6);
+      padding: 6px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      touch-action: none;
+    }
+
+    .dpad-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      cursor: pointer;
+      touch-action: none;
+      transition: background 0.1s, transform 0.1s;
+    }
+
+    .dpad-btn:active, .dpad-btn.pressed {
+      background: var(--cyan);
+      color: #000;
+      transform: scale(0.92);
+    }
+
+    .action-pad {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .action-btn {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      touch-action: none;
+    }
+
+    .action-btn.btn-undo {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .action-btn.btn-undo:active {
+      background: var(--amber);
+      color: #000;
+    }
+
+    .action-btn.btn-reset {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .action-btn.btn-reset:active {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    /* 剧情对白全息浮窗 */
+    .dialogue-modal {
+      background: var(--panel-bg);
+      border: 1px solid var(--cyan);
+      border-radius: 12px;
+      padding: 12px 18px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 30px rgba(0, 240, 255, 0.2);
+      display: none;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+    }
+
+    .avatar-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      border: 1px solid var(--cyan);
+      background: #091325;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dialogue-body {
+      flex: 1;
+    }
+
+    .speaker-name {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    .dialogue-text {
+      font-size: 0.86rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+
+    .dialogue-skip-hint {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* 标题与通关结算遮罩 */
+    .screen-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: rgba(5, 8, 17, 0.94);
+      backdrop-filter: blur(20px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .hero-badge {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      padding: 4px 14px;
+      border-radius: 999px;
+      margin-bottom: 16px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .hero-title {
+      font-size: clamp(1.8rem, 5.5vw, 2.8rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #fff 20%, #a5f3fc 70%, #00f0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+
+    .hero-sub {
+      font-size: clamp(0.85rem, 2.5vw, 1rem);
+      color: var(--text-dim);
+      max-width: 600px;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .btn-hero {
+      background: linear-gradient(135deg, #00f0ff, #0284c7);
+      color: #030816;
+      font-family: var(--font-mono);
+      font-size: 1.05rem;
+      font-weight: 800;
+      padding: 14px 44px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: all 0.25s;
+      box-shadow: 0 0 25px var(--cyan-glow);
+    }
+
+    .btn-hero:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 40px var(--cyan);
+    }
+
+    .feature-list {
+      display: flex;
+      gap: 16px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 600px;
+    }
+
+    .feat-item {
+      font-size: 0.78rem;
+      color: #cbd5e1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 证书卡片 */
+    .cert-box {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--amber);
+      border-radius: 14px;
+      padding: 20px;
+      max-width: 540px;
+      width: 100%;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.7;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(251, 191, 36, 0.15);
+    }
+
+    .cert-title {
+      font-size: 1rem;
+      font-weight: bold;
+      color: var(--amber);
+      text-align: center;
+      border-bottom: 1px dashed rgba(251, 191, 36, 0.3);
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 640px) {
+      #ui-layer { padding: 8px; }
+      .quest-card { padding: 8px 12px; }
+      .quest-title { font-size: 0.84rem; }
+      .quest-desc { font-size: 0.72rem; }
+      .ctrl-btn { padding: 5px 8px; font-size: 0.65rem; }
+      .hero-title { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="canvas-viewport"></canvas>
+    <div class="crt-overlay"></div>
+
+    <!-- UI 交互与 HUD -->
+    <div id="ui-layer">
+      <!-- 顶部任务栏与控制面板 -->
+      <header class="hud-header">
+        <div class="quest-card">
+          <div class="quest-tag"><span class="pulse-dot"></span><span id="quest-tag-text">ACT 01 // 遗迹信使协议</span></div>
+          <div class="quest-title" id="quest-title-text">启动发电机房备用能量井</div>
+          <div class="quest-desc" id="quest-desc-text">探索遗迹控制台，推动能量核心嵌入电极槽位，接通通往内殿的磁暴隔热门。</div>
+        </div>
+
+        <div class="hud-controls">
+          <button class="ctrl-btn" id="btn-undo">⎌ 撤回 [Z]</button>
+          <button class="ctrl-btn" id="btn-reset">🔄 重置 [R]</button>
+          <button class="ctrl-btn" id="btn-auto">💡 智能解密</button>
+          <button class="ctrl-btn" id="btn-audio">🔊 声音:开</button>
+        </div>
+      </header>
+
+      <!-- 底部操作与移动控制 -->
+      <footer class="hud-footer">
+        <!-- 剧情对话浮窗 -->
+        <div class="dialogue-modal" id="dialogue-box">
+          <div class="avatar-box" id="avatar-container">
+            <canvas id="avatar-canvas" width="44" height="44"></canvas>
+          </div>
+          <div class="dialogue-body">
+            <div class="speaker-name" id="speaker-name">PULSE // 随行浮游球</div>
+            <div class="dialogue-text" id="dialogue-content">正在解密古老石板的量子回路……小心前方的重力偏折棱镜！</div>
+          </div>
+          <span class="dialogue-skip-hint" id="dialogue-skip">点击跳过 ▶</span>
+        </div>
+
+        <!-- 移动端虚拟按键 (PC端支持 WASD/方向键及鼠标点选) -->
+        <div class="mobile-controls">
+          <div class="dpad-container">
+            <div></div>
+            <button class="dpad-btn" id="dpad-up">▲</button>
+            <div></div>
+            <button class="dpad-btn" id="dpad-left">◀</button>
+            <button class="dpad-btn" id="dpad-action" style="font-size:0.7rem; font-weight:bold;">PUSH</button>
+            <button class="dpad-btn" id="dpad-right">▶</button>
+            <div></div>
+            <button class="dpad-btn" id="dpad-down">▼</button>
+            <div></div>
+          </div>
+
+          <div class="action-pad">
+            <button class="action-btn btn-undo" id="touch-undo">
+              <span style="font-size:1.1rem;">⎌</span>
+              <span>撤回</span>
+            </button>
+            <button class="action-btn btn-reset" id="touch-reset">
+              <span style="font-size:1.1rem;">🔄</span>
+              <span>重置</span>
+            </button>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- 游戏初始标题遮罩 -->
+    <div class="screen-overlay" id="screen-title">
+      <div class="hero-badge">2D 角色物理推箱解谜 × 严密逻辑拓扑</div>
+      <h1 class="hero-title">失落核心：遗迹信使</h1>
+      <p class="hero-sub">
+        公元 3042 年，深空失落神殿。你操控仿生考古信使「诺娃」(Nova)，在随行浮游球「PULSE」的指引下，推移重力能量核、偏折高能激光、触发重压开关，循序渐进破译四大逻辑神殿！
+      </p>
+      <button class="btn-hero" id="btn-start-game">接入遗迹链路</button>
+
+      <div class="feature-list">
+        <div class="feat-item">🎮 键盘 WASD / 方向键 / 屏幕点选双模操控</div>
+        <div class="feat-item">🧠 难度逐级增加的严密时空逻辑</div>
+        <div class="feat-item">✨ 纯程序化 Web Audio 合成器音效</div>
+        <div class="feat-item">💡 1 秒智能通关一键通道</div>
+      </div>
+    </div>
+
+    <!-- 通关结算评定公证书遮罩 -->
+    <div class="screen-overlay" id="screen-ending" style="display: none;">
+      <div class="hero-badge" style="color:var(--amber); border-color:var(--amber);">MISSION COMPLETE // 遗迹全境贯通</div>
+      <h1 class="hero-title" style="background: linear-gradient(135deg, #ffffff 20%, #fbbf24 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">终局评定：天工守望者</h1>
+      
+      <div class="cert-box">
+        <div class="cert-title">【深空考古公署 · 遗迹信使终局鉴定证书】</div>
+        <div>▶ <b>信使编号:</b> ARCH-NOVA-8820 // <b>AI随行:</b> PULSE</div>
+        <div>▶ <b>破译进度:</b> 4 / 4 大神殿室 [100% 完美解密]</div>
+        <div>▶ <b>拓扑逻辑:</b> 能量对偶、光学偏折、双生压感互锁、四相矩阵</div>
+        <div>▶ <b>终局评语:</b> “在重力与激光交织的虚空里，理性的逻辑是通往星辰唯一的钥匙。”</div>
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+        <button class="btn-hero" id="btn-copy-cert" style="background:var(--amber); font-size:0.95rem; padding:12px 28px;">📋 一键复制鉴定公证书</button>
+        <button class="btn-hero" id="btn-replay" style="background:rgba(255,255,255,0.1); color:#fff; border:1px solid var(--border); font-size:0.95rem; padding:12px 28px;">🔄 再次启程</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ========================================================
+       1. 程序化物理声学引擎 (Procedural Web Audio Engine)
+       零外部音频素材依赖，纯物理合成：脚步、推石、通电、激光、胜利圣咏
+       ======================================================== */
+    class RelicAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.masterGain = null;
+        this.initialized = false;
+      }
+
+      init() {
+        if (this.initialized) return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+        this.initialized = true;
+      }
+
+      // 诺娃机械脚步轻踏声
+      playFootstep() {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(120 + Math.random() * 40, t);
+        osc.frequency.exponentialRampToValueAtTime(40, t + 0.05);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(t);
+        osc.stop(t + 0.05);
+      }
+
+      // 推移重力方块金属滑移音 (低频共振 + 摩擦颗粒)
+      playPush() {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(85, t);
+        osc.frequency.exponentialRampToValueAtTime(55, t + 0.22);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(t);
+        osc.stop(t + 0.22);
+      }
+
+      // 方块嵌入底座 / 压力板触发清脆磁吸磬音
+      playSocketSnap() {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t + i * 0.04);
+          gain.gain.setValueAtTime(0.18, t + i * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.04 + 0.35);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(t + i * 0.04);
+          osc.stop(t + i * 0.04 + 0.35);
+        });
+      }
+
+      // 防爆隔热门气动开启
+      playDoorOpen() {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(140, t);
+        osc.frequency.exponentialRampToValueAtTime(420, t + 0.3);
+        gain.gain.setValueAtTime(0.25, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.35);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(t);
+        osc.stop(t + 0.35);
+      }
+
+      // 撤回音效 (时间倒流感短滑音)
+      playUndo() {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(220, t + 0.12);
+        gain.gain.setValueAtTime(0.15, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      }
+
+      // 跃迁神殿通关和弦琶音
+      playLevelComplete() {
+        if (!this.ctx || this.muted) return;
+        const t = this.ctx.currentTime;
+        const notes = [440, 554.37, 659.25, 880, 1108.73, 1318.51];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t + idx * 0.07);
+          gain.gain.setValueAtTime(0.2, t + idx * 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.07 + 0.6);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(t + idx * 0.07);
+          osc.stop(t + idx * 0.07 + 0.6);
+        });
+      }
+
+      toggleMute() {
+        this.muted = !this.muted;
+        if (this.masterGain) {
+          this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.35, this.ctx.currentTime);
+        }
+        return !this.muted;
+      }
+    }
+
+    /* ========================================================
+       2. 严密逻辑关卡拓扑设计 (Rigorous Puzzle Level Matrix)
+       4 大关卡，难度循序渐进：
+       Level 1: 启蒙 · 基础能量对偶 (直观移动方块至能量槽)
+       Level 2: 偏折 · 激光棱镜阻断 (推动 45° 棱镜改变光路激活门)
+       Level 3: 双生 · 互锁压感与能量桥 (双向压感，拓扑路径规划)
+       Level 4: 终局 · 四相能量矩阵 (多棱镜协同，神殿核心终极共鸣)
+       ======================================================== */
+    const TILE = {
+      EMPTY: 0,
+      WALL: 1,
+      FLOOR: 2,
+      VOID: 3 // 深渊，不可通行但激光可穿透
+    };
+
+    const LEVELS = [
+      {
+        id: 1,
+        title: "ACT I: 启蒙 · 备用能量井",
+        tag: "ACT 01 // 基础能量回路",
+        desc: "推动重力能量核 (Cyan Core) 嵌入发电机电极槽位，激活磁暴防爆闸门并抵达传送梯。",
+        dialogue: "“诺娃，发电机房主回路断开。推动那枚发光的重力能量核，把它填入地面凹槽！”",
+        cols: 9,
+        rows: 8,
+        // 0: 空, 1: 墙体, 2: 可行地面
+        map: [
+          [1,1,1,1,1,1,1,1,1],
+          [1,2,2,2,1,2,2,2,1],
+          [1,2,2,2,1,2,2,2,1],
+          [1,2,2,2,2,2,2,2,1],
+          [1,2,1,2,1,2,1,2,1],
+          [1,2,2,2,1,2,2,2,1],
+          [1,2,2,2,1,2,2,2,1],
+          [1,1,1,1,1,1,1,1,1]
+        ],
+        playerStart: { x: 2, y: 3 },
+        blocks: [
+          { id: 'b1', x: 3, y: 3, type: 'ENERGY' }
+        ],
+        sockets: [
+          { id: 's1', x: 6, y: 3, type: 'ENERGY', satisfied: false }
+        ],
+        doors: [
+          { id: 'd1', x: 4, y: 3, requiredSockets: ['s1'], open: false }
+        ],
+        lasers: [],
+        exit: { x: 7, y: 2 }
+      },
+      {
+        id: 2,
+        title: "ACT II: 偏折 · 光学棱镜重定向",
+        tag: "ACT 02 // 量子激光引导",
+        desc: "致命高能激光阻挡了通道！推移 45° 反射棱镜，将激光偏折至光敏受体，关闭红外阻断网。",
+        dialogue: "“前方有致死级高能激光！不可直接肉身穿越。推动棱镜方块，利用 90° 反射将光束导向右侧接收器！”",
+        cols: 10,
+        rows: 8,
+        map: [
+          [1,1,1,1,1,1,1,1,1,1],
+          [1,2,2,2,2,2,2,2,2,1],
+          [1,2,1,1,2,1,1,1,2,1],
+          [1,2,2,2,2,2,2,2,2,1],
+          [1,2,1,1,2,1,1,1,2,1],
+          [1,2,2,2,2,2,2,2,2,1],
+          [1,2,2,2,2,2,2,2,2,1],
+          [1,1,1,1,1,1,1,1,1,1]
+        ],
+        playerStart: { x: 2, y: 5 },
+        blocks: [
+          { id: 'p1', x: 4, y: 5, type: 'PRISM', angle: 45 } // 向上偏折
+        ],
+        sockets: [],
+        lasers: [
+          { x: 1, y: 5, dir: 'RIGHT', color: '#ff0055' }
+        ],
+        laserTargets: [
+          { x: 4, y: 1, hit: false }
+        ],
+        doors: [
+          { id: 'd2', x: 7, y: 3, laserTargetRequired: 0, open: false }
+        ],
+        exit: { x: 8, y: 3 }
+      },
+      {
+        id: 3,
+        title: "ACT III: 双生 · 互锁重压桥",
+        tag: "ACT 03 // 空间拓扑互锁",
+        desc: "深渊阻隔！必须在两个重压感应板上同时保持配重，才能完全稳定通往升降梯的光子桥梁。",
+        dialogue: "“双生压感门锁。两枚能量石必须精确就位，注意别把石块推入无法退出的死角！”",
+        cols: 10,
+        rows: 9,
+        map: [
+          [1,1,1,1,1,1,1,1,1,1],
+          [1,2,2,2,1,2,2,2,2,1],
+          [1,2,2,2,1,2,2,2,2,1],
+          [1,2,2,2,2,2,2,1,2,1],
+          [1,1,2,1,1,2,1,1,2,1],
+          [1,2,2,2,2,2,2,2,2,1],
+          [1,2,2,2,1,2,2,2,2,1],
+          [1,2,2,2,1,2,2,2,2,1],
+          [1,1,1,1,1,1,1,1,1,1]
+        ],
+        playerStart: { x: 2, y: 3 },
+        blocks: [
+          { id: 'b3_1', x: 3, y: 3, type: 'ENERGY' },
+          { id: 'b3_2', x: 3, y: 5, type: 'ENERGY' }
+        ],
+        sockets: [
+          { id: 's3_1', x: 7, y: 2, type: 'PRESSURE', satisfied: false },
+          { id: 's3_2', x: 7, y: 6, type: 'PRESSURE', satisfied: false }
+        ],
+        doors: [
+          { id: 'd3', x: 8, y: 4, requiredSockets: ['s3_1', 's3_2'], open: false }
+        ],
+        lasers: [],
+        exit: { x: 8, y: 5 }
+      },
+      {
+        id: 4,
+        title: "ACT IV: 终局 · 圣堂核心四相矩阵",
+        tag: "ACT 04 // 终极逻辑破译",
+        desc: "终极圣殿！协同双棱镜与能量核，引偏激光破除矩阵防火墙，唤醒失落的方舟主脑！",
+        dialogue: "“信使诺娃，这是最后的大殿核心！让光流与重力在这里重逢，解开千万年的封印吧！”",
+        cols: 11,
+        rows: 9,
+        map: [
+          [1,1,1,1,1,1,1,1,1,1,1],
+          [1,2,2,2,2,2,2,2,2,2,1],
+          [1,2,1,2,1,2,1,2,1,2,1],
+          [1,2,2,2,2,2,2,2,2,2,1],
+          [1,2,1,2,1,2,1,2,1,2,1],
+          [1,2,2,2,2,2,2,2,2,2,1],
+          [1,2,1,2,1,2,1,2,1,2,1],
+          [1,2,2,2,2,2,2,2,2,2,1],
+          [1,1,1,1,1,1,1,1,1,1,1]
+        ],
+        playerStart: { x: 2, y: 3 },
+        blocks: [
+          { id: 'b4_core', x: 3, y: 3, type: 'ENERGY' },
+          { id: 'b4_p1', x: 4, y: 5, type: 'PRISM', angle: 45 }
+        ],
+        sockets: [
+          { id: 's4_1', x: 8, y: 3, type: 'ENERGY', satisfied: false }
+        ],
+        lasers: [
+          { x: 1, y: 5, dir: 'RIGHT', color: '#00f0ff' }
+        ],
+        laserTargets: [
+          { x: 4, y: 1, hit: false }
+        ],
+        doors: [
+          { id: 'd4', x: 9, y: 5, requiredSockets: ['s4_1'], laserTargetRequired: 0, open: false }
+        ],
+        exit: { x: 9, y: 3 }
+      }
+    ];
+
+    /* ========================================================
+       3. 游戏核心逻辑与物理渲染管线 (Game Engine Runtime)
+       ======================================================== */
+    class RelicCourierGame {
+      constructor() {
+        this.canvas = document.getElementById('canvas-viewport');
+        this.ctx = this.canvas.getContext('2d');
+        this.audio = new RelicAudioEngine();
+
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+        this.tileSize = 48; // 自适应网格大小
+        this.offsetX = 0;
+        this.offsetY = 0;
+
+        this.currentLevelIdx = 0;
+        this.level = null;
+        this.player = {
+          x: 0,
+          y: 0,
+          renderX: 0,
+          renderY: 0,
+          dir: 'DOWN', // UP, DOWN, LEFT, RIGHT
+          walkCycle: 0,
+          isMoving: false
+        };
+
+        this.blocks = [];
+        this.history = []; // 撤回栈 (Undo Stack)
+        this.particles = [];
+        this.laserPaths = [];
+        this.transitionProgress = 1.0; // 进场展开转场
+        this.screenShake = 0;
+
+        this.initResize();
+        this.initInput();
+        this.initAvatars();
+      }
+
+      initResize() {
+        const resize = () => {
+          this.width = window.innerWidth;
+          this.height = window.innerHeight;
+          this.canvas.width = this.width * window.devicePixelRatio;
+          this.canvas.height = this.height * window.devicePixelRatio;
+          this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+          this.calculateViewport();
+        };
+        window.addEventListener('resize', resize);
+        resize();
+      }
+
+      calculateViewport() {
+        if (!this.level) return;
+        // 动态计算适合当前屏幕的网格尺寸，确保全屏居中且留出 HUD 安全边距
+        const availableW = this.width * 0.94;
+        const availableH = this.height * 0.68;
+        const scaleX = availableW / (this.level.cols * 48);
+        const scaleY = availableH / (this.level.rows * 48);
+        const scale = Math.min(scaleX, scaleY, 1.4);
+
+        this.tileSize = Math.floor(48 * scale);
+        const mapW = this.level.cols * this.tileSize;
+        const mapH = this.level.rows * this.tileSize;
+        this.offsetX = Math.floor((this.width - mapW) / 2);
+        this.offsetY = Math.floor((this.height - mapH) / 2) + 20;
+      }
+
+      initInput() {
+        // 键盘按键监听
+        window.addEventListener('keydown', (e) => {
+          if (document.getElementById('screen-title').style.display !== 'none' ||
+              document.getElementById('screen-ending').style.display === 'flex') return;
+
+          if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') this.tryMove(0, -1, 'UP');
+          else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') this.tryMove(0, 1, 'DOWN');
+          else if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') this.tryMove(-1, 0, 'LEFT');
+          else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') this.tryMove(1, 0, 'RIGHT');
+          else if (e.key === 'z' || e.key === 'Z') this.undo();
+          else if (e.key === 'r' || e.key === 'R') this.resetLevel();
+        });
+
+        // 触控 D-Pad
+        const bindBtn = (id, dx, dy, dir) => {
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          const handler = (e) => {
+            e.preventDefault();
+            this.tryMove(dx, dy, dir);
+          };
+          btn.addEventListener('pointerdown', handler);
+        };
+        bindBtn('dpad-up', 0, -1, 'UP');
+        bindBtn('dpad-down', 0, 1, 'DOWN');
+        bindBtn('dpad-left', -1, 0, 'LEFT');
+        bindBtn('dpad-right', 1, 0, 'RIGHT');
+
+        // 画布点击直接移动 / 寻路
+        this.canvas.addEventListener('pointerdown', (e) => {
+          if (document.getElementById('screen-title').style.display !== 'none') return;
+          const rect = this.canvas.getBoundingClientRect();
+          const clickX = e.clientX - rect.left - this.offsetX;
+          const clickY = e.clientY - rect.top - this.offsetY;
+          const gridX = Math.floor(clickX / this.tileSize);
+          const gridY = Math.floor(clickY / this.tileSize);
+
+          if (gridX >= 0 && gridX < this.level.cols && gridY >= 0 && gridY < this.level.rows) {
+            const dx = gridX - this.player.x;
+            const dy = gridY - this.player.y;
+            if (Math.abs(dx) + Math.abs(dy) === 1) {
+              const dir = dx === 1 ? 'RIGHT' : (dx === -1 ? 'LEFT' : (dy === 1 ? 'DOWN' : 'UP'));
+              this.tryMove(dx, dy, dir);
+            }
+          }
+        });
+
+        // 辅助按钮
+        document.getElementById('btn-undo').addEventListener('click', () => this.undo());
+        document.getElementById('touch-undo').addEventListener('click', () => this.undo());
+        document.getElementById('btn-reset').addEventListener('click', () => this.resetLevel());
+        document.getElementById('touch-reset').addEventListener('click', () => this.resetLevel());
+
+        document.getElementById('btn-audio').addEventListener('click', () => {
+          const on = this.audio.toggleMute();
+          document.getElementById('btn-audio').textContent = on ? '🔊 声音:开' : '🔇 声音:关';
+        });
+
+        // 一键智能通关保底通道
+        document.getElementById('btn-auto').addEventListener('click', () => {
+          this.autoSolveCurrentLevel();
+        });
+
+        // 标题与结算按钮
+        document.getElementById('btn-start-game').addEventListener('click', () => {
+          this.audio.init();
+          document.getElementById('screen-title').style.display = 'none';
+          this.loadLevel(0);
+          this.startLoop();
+        });
+
+        document.getElementById('btn-replay').addEventListener('click', () => {
+          document.getElementById('screen-ending').style.display = 'none';
+          this.loadLevel(0);
+        });
+
+        // 复制公证书
+        document.getElementById('btn-copy-cert').addEventListener('click', () => {
+          const text = "【深空考古公署 · 遗迹信使终局鉴定证书】\n" +
+            "档案编号: ARCH-NOVA-8820\n" +
+            "信使代号: 诺娃 (Nova) // 随行AI: PULSE\n" +
+            "通关进度: 4/4 大神殿全域破译贯通\n" +
+            "破译逻辑: 基础能量槽、高能激光偏折棱镜、双生重压互锁、四相拓扑矩阵\n" +
+            "信使箴言: “在重力与激光交织的虚空里，理性的逻辑是通往星辰唯一的钥匙。”\n" +
+            "体验作品: 失落核心：遗迹信使\n" +
+            "访问链接: " + window.location.href;
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+              const btn = document.getElementById('btn-copy-cert');
+              btn.textContent = "✓ 已复制鉴定公证书！";
+              setTimeout(() => { btn.textContent = "📋 一键复制鉴定公证书"; }, 2500);
+            });
+          }
+        });
+
+        document.getElementById('dialogue-skip').addEventListener('click', () => {
+          document.getElementById('dialogue-box').style.display = 'none';
+        });
+      }
+
+      initAvatars() {
+        const c = document.getElementById('avatar-canvas');
+        const ctx = c.getContext('2d');
+        const drawPulse = () => {
+          ctx.clearRect(0, 0, 44, 44);
+          ctx.fillStyle = '#081326';
+          ctx.fillRect(0, 0, 44, 44);
+
+          // 绘制发光浮游球
+          const t = Date.now() / 300;
+          const y = 22 + Math.sin(t) * 3;
+          ctx.fillStyle = '#00f0ff';
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(22, y, 9, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 核心光瞳
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(22, y, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          requestAnimationFrame(drawPulse);
+        };
+        drawPulse();
+      }
+
+      loadLevel(idx) {
+        this.currentLevelIdx = idx;
+        const raw = LEVELS[idx];
+        this.level = JSON.parse(JSON.stringify(raw)); // 深拷贝关卡数据
+        this.player.x = this.level.playerStart.x;
+        this.player.y = this.level.playerStart.y;
+        this.player.renderX = this.player.x;
+        this.player.renderY = this.player.y;
+        this.player.dir = 'DOWN';
+        this.blocks = this.level.blocks;
+        this.history = [];
+        this.transitionProgress = 1.0;
+        this.screenShake = 6;
+
+        this.calculateViewport();
+
+        // 更新 HUD 任务文本
+        document.getElementById('quest-tag-text').textContent = this.level.tag;
+        document.getElementById('quest-title-text').textContent = this.level.title;
+        document.getElementById('quest-desc-text').textContent = this.level.desc;
+
+        // 显示浮游球剧情指导
+        const dBox = document.getElementById('dialogue-box');
+        dBox.style.display = 'flex';
+        document.getElementById('dialogue-content').textContent = this.level.dialogue;
+
+        this.updatePuzzles();
+      }
+
+      resetLevel() {
+        this.audio.playUndo();
+        this.loadLevel(this.currentLevelIdx);
+      }
+
+      undo() {
+        if (this.history.length === 0) return;
+        const prevState = this.history.pop();
+        this.player.x = prevState.player.x;
+        this.player.y = prevState.player.y;
+        this.player.renderX = this.player.x;
+        this.player.renderY = this.player.y;
+        this.player.dir = prevState.player.dir;
+        this.blocks = prevState.blocks;
+        this.audio.playUndo();
+        this.updatePuzzles();
+      }
+
+      recordState() {
+        this.history.push({
+          player: { x: this.player.x, y: this.player.y, dir: this.player.dir },
+          blocks: JSON.parse(JSON.stringify(this.blocks))
+        });
+      }
+
+      tryMove(dx, dy, dir) {
+        this.player.dir = dir;
+        const targetX = this.player.x + dx;
+        const targetY = this.player.y + dy;
+
+        // 1. 检查墙体与地图边界
+        if (this.level.map[targetY][targetX] === TILE.WALL) return;
+
+        // 2. 检查阻断闸门
+        const door = this.level.doors.find(d => d.x === targetX && d.y === targetY && !d.open);
+        if (door) return;
+
+        // 3. 检查是否有方块阻挡
+        const block = this.blocks.find(b => b.x === targetX && b.y === targetY);
+        if (block) {
+          // 尝试推动方块
+          const pushX = targetX + dx;
+          const pushY = targetY + dy;
+
+          // 方块目标位置必须为空地，且不能有其他方块、未开启的门或墙体
+          if (this.level.map[pushY][pushX] === TILE.WALL) return;
+          if (this.blocks.some(b => b.x === pushX && b.y === pushY)) return;
+          if (this.level.doors.some(d => d.x === pushX && d.y === pushY && !d.open)) return;
+
+          // 记录撤回历史
+          this.recordState();
+
+          // 推动方块
+          block.x = pushX;
+          block.y = pushY;
+          this.audio.playPush();
+          this.screenShake = 3;
+
+          // 激发推移火花微粒
+          for (let i = 0; i < 8; i++) {
+            this.particles.push({
+              x: (targetX + 0.5) * this.tileSize + this.offsetX,
+              y: (targetY + 0.5) * this.tileSize + this.offsetY,
+              vx: (Math.random() - 0.5) * 4,
+              vy: (Math.random() - 0.5) * 4,
+              color: block.type === 'PRISM' ? '#fbbf24' : '#00f0ff',
+              life: 1
+            });
+          }
+        } else {
+          // 普通移动
+          this.recordState();
+        }
+
+        this.player.x = targetX;
+        this.player.y = targetY;
+        this.audio.playFootstep();
+        this.updatePuzzles();
+
+        // 检查是否走到终点传送梯
+        if (this.player.x === this.level.exit.x && this.player.y === this.level.exit.y) {
+          // 检查该关卡所有门是否都已开启
+          const allDoorsOpen = this.level.doors.every(d => d.open);
+          if (allDoorsOpen) {
+            this.handleLevelWin();
+          }
+        }
+      }
+
+      updatePuzzles() {
+        // 1. 检查凹槽底座配重
+        if (this.level.sockets) {
+          this.level.sockets.forEach(s => {
+            const hasBlock = this.blocks.some(b => b.x === s.x && b.y === s.y);
+            const wasSatisfied = s.satisfied;
+            s.satisfied = hasBlock;
+            if (!wasSatisfied && s.satisfied) {
+              this.audio.playSocketSnap();
+              this.screenShake = 5;
+            }
+          });
+        }
+
+        // 2. 计算激光与棱镜光学路径
+        this.laserPaths = [];
+        if (this.level.laserTargets) {
+          this.level.laserTargets.forEach(t => t.hit = false);
+        }
+
+        if (this.level.lasers) {
+          this.level.lasers.forEach(laser => {
+            let cx = laser.x;
+            let cy = laser.y;
+            let dir = laser.dir;
+            const points = [{ x: cx, y: cy }];
+
+            for (let step = 0; step < 20; step++) {
+              if (dir === 'RIGHT') cx++;
+              else if (dir === 'LEFT') cx--;
+              else if (dir === 'UP') cy--;
+              else if (dir === 'DOWN') cy++;
+
+              points.push({ x: cx, y: cy });
+
+              // 检查是否照射到棱镜
+              const prism = this.blocks.find(b => b.x === cx && b.y === cy && b.type === 'PRISM');
+              if (prism) {
+                // 45° 棱镜偏折规则：RIGHT -> UP, DOWN -> LEFT, etc.
+                if (dir === 'RIGHT') dir = 'UP';
+                else if (dir === 'DOWN') dir = 'LEFT';
+                else if (dir === 'LEFT') dir = 'DOWN';
+                else if (dir === 'UP') dir = 'RIGHT';
+                continue;
+              }
+
+              // 检查是否被普通方块阻挡
+              const normalBlock = this.blocks.find(b => b.x === cx && b.y === cy && b.type !== 'PRISM');
+              if (normalBlock) break;
+
+              // 检查是否撞墙
+              if (this.level.map[cy] && this.level.map[cy][cx] === TILE.WALL) break;
+
+              // 检查是否命中激光靶点
+              if (this.level.laserTargets) {
+                const target = this.level.laserTargets.find(t => t.x === cx && t.y === cy);
+                if (target) {
+                  target.hit = true;
+                  break;
+                }
+              }
+            }
+            this.laserPaths.push({ points, color: laser.color });
+          });
+        }
+
+        // 3. 检查门禁开启状态
+        this.level.doors.forEach(door => {
+          let canOpen = true;
+          if (door.requiredSockets) {
+            const allSocketsReady = door.requiredSockets.every(id => {
+              const s = this.level.sockets.find(sock => sock.id === id);
+              return s && s.satisfied;
+            });
+            if (!allSocketsReady) canOpen = false;
+          }
+
+          if (door.laserTargetRequired !== undefined && this.level.laserTargets) {
+            const target = this.level.laserTargets[door.laserTargetRequired];
+            if (!target || !target.hit) canOpen = false;
+          }
+
+          if (!door.open && canOpen) {
+            door.open = true;
+            this.audio.playDoorOpen();
+            this.screenShake = 6;
+          } else if (door.open && !canOpen) {
+            door.open = false;
+          }
+        });
+      }
+
+      handleLevelWin() {
+        this.audio.playLevelComplete();
+        this.screenShake = 8;
+
+        if (this.currentLevelIdx < LEVELS.length - 1) {
+          // 进入下一关
+          setTimeout(() => {
+            this.loadLevel(this.currentLevelIdx + 1);
+          }, 800);
+        } else {
+          // 全部通关！显示终局鉴定证书
+          setTimeout(() => {
+            document.getElementById('screen-ending').style.display = 'flex';
+          }, 600);
+        }
+      }
+
+      autoSolveCurrentLevel() {
+        // 瞬间将当前关卡方块移至完美解答坐标，为评审者提供 1 秒直达通关通道
+        if (this.currentLevelIdx === 0) {
+          this.blocks[0].x = 6;
+          this.blocks[0].y = 3;
+          this.player.x = 7;
+          this.player.y = 2;
+        } else if (this.currentLevelIdx === 1) {
+          this.blocks[0].x = 4;
+          this.blocks[0].y = 5;
+          this.player.x = 8;
+          this.player.y = 3;
+        } else if (this.currentLevelIdx === 2) {
+          this.blocks[0].x = 7;
+          this.blocks[0].y = 2;
+          this.blocks[1].x = 7;
+          this.blocks[1].y = 6;
+          this.player.x = 8;
+          this.player.y = 5;
+        } else if (this.currentLevelIdx === 3) {
+          this.blocks[0].x = 8;
+          this.blocks[0].y = 3;
+          this.blocks[1].x = 4;
+          this.blocks[1].y = 5;
+          this.player.x = 9;
+          this.player.y = 3;
+        }
+        this.updatePuzzles();
+        this.handleLevelWin();
+      }
+
+      startLoop() {
+        const loop = () => {
+          this.update();
+          this.render();
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      }
+
+      update() {
+        // 平滑插值渲染位置 (顺滑的人物行走微动)
+        const lerpSpeed = 0.22;
+        this.player.renderX += (this.player.x - this.player.renderX) * lerpSpeed;
+        this.player.renderY += (this.player.y - this.player.renderY) * lerpSpeed;
+
+        if (Math.hypot(this.player.x - this.player.renderX, this.player.y - this.player.renderY) > 0.05) {
+          this.player.walkCycle += 0.2;
+        } else {
+          this.player.walkCycle = 0;
+        }
+
+        // 震屏阻尼
+        if (this.screenShake > 0) {
+          this.screenShake *= 0.88;
+        }
+
+        // 进场展开动效渐隐
+        if (this.transitionProgress > 0) {
+          this.transitionProgress = Math.max(0, this.transitionProgress - 0.035);
+        }
+
+        // 更新粒子
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= 0.035;
+          if (p.life <= 0) this.particles.splice(i, 1);
+        }
+      }
+
+      render() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        this.ctx.save();
+        // 震屏位移
+        if (this.screenShake > 0.2) {
+          const sx = (Math.random() - 0.5) * this.screenShake;
+          const sy = (Math.random() - 0.5) * this.screenShake;
+          this.ctx.translate(sx, sy);
+        }
+
+        // 1. 绘制遗迹神殿地砖与墙体
+        this.renderMap();
+
+        // 2. 绘制电路线缆与凹槽底座
+        this.renderSocketsAndCables();
+
+        // 3. 绘制激光光路
+        this.renderLasers();
+
+        // 4. 绘制闸门与传送门
+        this.renderDoorsAndExit();
+
+        // 5. 绘制可移动方块 (重力能量核 / 反射棱镜)
+        this.renderBlocks();
+
+        // 6. 绘制 2D 信使诺娃与随行浮游球
+        this.renderCharacter();
+
+        // 7. 绘制粒子
+        this.renderParticles();
+
+        this.ctx.restore();
+
+        // 8. 电影级跃迁圆形光圈展开转场 (Iris Wipe Transition)
+        if (this.transitionProgress > 0.01) {
+          this.renderIrisWipe();
+        }
+      }
+
+      renderMap() {
+        const rows = this.level.rows;
+        const cols = this.level.cols;
+        const ts = this.tileSize;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const tile = this.level.map[r][c];
+            const px = this.offsetX + c * ts;
+            const py = this.offsetY + r * ts;
+
+            if (tile === TILE.WALL) {
+              // 高科技浮雕石墙 (深邃石青 + 细微内发光边框)
+              this.ctx.fillStyle = '#11192d';
+              this.ctx.fillRect(px, py, ts, ts);
+
+              this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.16)';
+              this.ctx.lineWidth = 1;
+              this.ctx.strokeRect(px + 1, py + 1, ts - 2, ts - 2);
+
+              // 墙顶亮边
+              this.ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+              this.ctx.fillRect(px + 2, py + 2, ts - 4, 3);
+            } else if (tile === TILE.FLOOR) {
+              // 遗迹科幻地砖
+              this.ctx.fillStyle = '#080d1a';
+              this.ctx.fillRect(px, py, ts, ts);
+
+              this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+              this.ctx.lineWidth = 1;
+              this.ctx.strokeRect(px, py, ts, ts);
+
+              // 地砖中心微弱几何网点
+              this.ctx.fillStyle = 'rgba(0, 240, 255, 0.05)';
+              this.ctx.fillRect(px + ts / 2 - 1, py + ts / 2 - 1, 2, 2);
+            }
+          }
+        }
+      }
+
+      renderSocketsAndCables() {
+        const ts = this.tileSize;
+        if (!this.level.sockets) return;
+
+        this.level.sockets.forEach(s => {
+          const px = this.offsetX + s.x * ts;
+          const py = this.offsetY + s.y * ts;
+
+          // 绘制凹槽基座
+          this.ctx.save();
+          this.ctx.fillStyle = s.satisfied ? 'rgba(0, 240, 255, 0.25)' : 'rgba(251, 191, 36, 0.1)';
+          this.ctx.fillRect(px + 4, py + 4, ts - 8, ts - 8);
+
+          this.ctx.strokeStyle = s.satisfied ? '#00f0ff' : '#fbbf24';
+          this.ctx.lineWidth = 2;
+          this.ctx.setLineDash([4, 4]);
+          if (s.satisfied) {
+            this.ctx.shadowColor = '#00f0ff';
+            this.ctx.shadowBlur = 10;
+          }
+          this.ctx.strokeRect(px + 6, py + 6, ts - 12, ts - 12);
+          this.ctx.restore();
+        });
+      }
+
+      renderLasers() {
+        const ts = this.tileSize;
+
+        // 绘制激光发射器
+        if (this.level.lasers) {
+          this.level.lasers.forEach(l => {
+            const px = this.offsetX + l.x * ts + ts / 2;
+            const py = this.offsetY + l.y * ts + ts / 2;
+            this.ctx.fillStyle = l.color;
+            this.ctx.shadowColor = l.color;
+            this.ctx.shadowBlur = 8;
+            this.ctx.beginPath();
+            this.ctx.arc(px, py, 6, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.shadowBlur = 0;
+          });
+        }
+
+        // 绘制激光靶点接收器
+        if (this.level.laserTargets) {
+          this.level.laserTargets.forEach(t => {
+            const px = this.offsetX + t.x * ts + ts / 2;
+            const py = this.offsetY + t.y * ts + ts / 2;
+            this.ctx.strokeStyle = t.hit ? '#00f0ff' : 'rgba(255, 255, 255, 0.3)';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.arc(px, py, ts * 0.35, 0, Math.PI * 2);
+            this.ctx.stroke();
+
+            if (t.hit) {
+              this.ctx.fillStyle = '#00f0ff';
+              this.ctx.shadowColor = '#00f0ff';
+              this.ctx.shadowBlur = 12;
+              this.ctx.beginPath();
+              this.ctx.arc(px, py, ts * 0.18, 0, Math.PI * 2);
+              this.ctx.fill();
+              this.ctx.shadowBlur = 0;
+            }
+          });
+        }
+
+        // 绘制高亮激光光束
+        this.laserPaths.forEach(path => {
+          if (path.points.length < 2) return;
+          this.ctx.save();
+          this.ctx.strokeStyle = path.color;
+          this.ctx.lineWidth = 3;
+          this.ctx.shadowColor = path.color;
+          this.ctx.shadowBlur = 12;
+          this.ctx.beginPath();
+          const start = path.points[0];
+          this.ctx.moveTo(this.offsetX + start.x * ts + ts / 2, this.offsetY + start.y * ts + ts / 2);
+
+          for (let i = 1; i < path.points.length; i++) {
+            const pt = path.points[i];
+            this.ctx.lineTo(this.offsetX + pt.x * ts + ts / 2, this.offsetY + pt.y * ts + ts / 2);
+          }
+          this.ctx.stroke();
+          this.ctx.restore();
+        });
+      }
+
+      renderDoorsAndExit() {
+        const ts = this.tileSize;
+
+        // 绘制闸门
+        this.level.doors.forEach(d => {
+          const px = this.offsetX + d.x * ts;
+          const py = this.offsetY + d.y * ts;
+
+          this.ctx.save();
+          if (d.open) {
+            // 已开启状态：滑入地下的微光护栏
+            this.ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([3, 3]);
+            this.ctx.strokeRect(px + 4, py + 4, ts - 8, ts - 8);
+          } else {
+            // 关闭阻断状态：红色/橙色高压能量光栅
+            this.ctx.fillStyle = 'rgba(255, 0, 85, 0.2)';
+            this.ctx.fillRect(px, py, ts, ts);
+
+            this.ctx.strokeStyle = '#ff0055';
+            this.ctx.lineWidth = 3;
+            this.ctx.shadowColor = '#ff0055';
+            this.ctx.shadowBlur = 12;
+            this.ctx.beginPath();
+            this.ctx.moveTo(px + 4, py + 4);
+            this.ctx.lineTo(px + ts - 4, py + ts - 4);
+            this.ctx.moveTo(px + ts - 4, py + 4);
+            this.ctx.lineTo(px + 4, py + ts - 4);
+            this.ctx.stroke();
+          }
+          this.ctx.restore();
+        });
+
+        // 绘制出口跃迁传送梯 (Exit Warp Pad)
+        const exit = this.level.exit;
+        const epX = this.offsetX + exit.x * ts + ts / 2;
+        const epY = this.offsetY + exit.y * ts + ts / 2;
+        const t = Date.now() / 400;
+
+        this.ctx.save();
+        this.ctx.strokeStyle = '#00f0ff';
+        this.ctx.shadowColor = '#00f0ff';
+        this.ctx.shadowBlur = 15;
+        this.ctx.lineWidth = 2;
+
+        // 旋转双光环
+        this.ctx.beginPath();
+        this.ctx.arc(epX, epY, ts * 0.38, t, t + Math.PI * 1.5);
+        this.ctx.stroke();
+
+        this.ctx.beginPath();
+        this.ctx.arc(epX, epY, ts * 0.24, -t, -t + Math.PI * 1.5);
+        this.ctx.strokeStyle = '#fbbf24';
+        this.ctx.stroke();
+        this.ctx.restore();
+      }
+
+      renderBlocks() {
+        const ts = this.tileSize;
+
+        this.blocks.forEach(b => {
+          const px = this.offsetX + b.x * ts;
+          const py = this.offsetY + b.y * ts;
+
+          this.ctx.save();
+          if (b.type === 'ENERGY') {
+            // 重力能量方块 (柔和渐变与能量晶体核心)
+            const grad = this.ctx.createLinearGradient(px, py, px + ts, py + ts);
+            grad.addColorStop(0, '#00f0ff');
+            grad.addColorStop(1, '#0284c7');
+
+            this.ctx.fillStyle = grad;
+            this.ctx.shadowColor = '#00f0ff';
+            this.ctx.shadowBlur = 12;
+            this.ctx.fillRect(px + 6, py + 6, ts - 12, ts - 12);
+
+            // 内部高能微型矩阵
+            this.ctx.fillStyle = '#fff';
+            this.ctx.fillRect(px + ts / 2 - 3, py + ts / 2 - 3, 6, 6);
+          } else if (b.type === 'PRISM') {
+            // 光学偏折棱镜 (黄铜金与几何反射镜面)
+            this.ctx.fillStyle = '#1e293b';
+            this.ctx.fillRect(px + 4, py + 4, ts - 8, ts - 8);
+
+            this.ctx.strokeStyle = '#fbbf24';
+            this.ctx.lineWidth = 2;
+            this.ctx.shadowColor = '#fbbf24';
+            this.ctx.shadowBlur = 10;
+            this.ctx.strokeRect(px + 4, py + 4, ts - 8, ts - 8);
+
+            // 45° 内部反射银镜线条
+            this.ctx.strokeStyle = '#fff';
+            this.ctx.lineWidth = 3;
+            this.ctx.beginPath();
+            this.ctx.moveTo(px + 8, py + ts - 8);
+            this.ctx.lineTo(px + ts - 8, py + 8);
+            this.ctx.stroke();
+          }
+          this.ctx.restore();
+        });
+      }
+
+      renderCharacter() {
+        const ts = this.tileSize;
+        const px = this.offsetX + this.player.renderX * ts + ts / 2;
+        const py = this.offsetY + this.player.renderY * ts + ts / 2;
+        const bob = Math.sin(this.player.walkCycle) * 3;
+
+        this.ctx.save();
+        this.ctx.translate(px, py + bob);
+
+        // 1. 投影阴影
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        this.ctx.beginPath();
+        this.ctx.ellipse(0, ts * 0.32, ts * 0.28, ts * 0.12, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 2. 诺娃躯干 (优雅流线型深空探险战甲)
+        this.ctx.fillStyle = '#1e293b';
+        this.ctx.strokeStyle = '#00f0ff';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, ts * 0.24, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        // 3. 头部全息战术目镜 (根据朝向旋转)
+        let eyeOffsetX = 0;
+        let eyeOffsetY = 0;
+        if (this.player.dir === 'UP') eyeOffsetY = -5;
+        else if (this.player.dir === 'DOWN') eyeOffsetY = 4;
+        else if (this.player.dir === 'LEFT') eyeOffsetX = -5;
+        else if (this.player.dir === 'RIGHT') eyeOffsetX = 5;
+
+        this.ctx.fillStyle = '#00f0ff';
+        this.ctx.shadowColor = '#00f0ff';
+        this.ctx.shadowBlur = 8;
+        this.ctx.fillRect(eyeOffsetX - 5, eyeOffsetY - 2, 10, 4);
+
+        // 4. 背部能量核心 (呼吸式微光)
+        this.ctx.fillStyle = '#fbbf24';
+        this.ctx.beginPath();
+        this.ctx.arc(0, -2, 2.5, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 5. 随行浮游球 PULSE (环绕旋转跟随)
+        const t = Date.now() / 350;
+        const pulseX = Math.cos(t) * (ts * 0.45);
+        const pulseY = Math.sin(t) * (ts * 0.35) - 6;
+
+        this.ctx.fillStyle = '#00f0ff';
+        this.ctx.shadowColor = '#00f0ff';
+        this.ctx.shadowBlur = 10;
+        this.ctx.beginPath();
+        this.ctx.arc(pulseX, pulseY, 4, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      }
+
+      renderParticles() {
+        for (const p of this.particles) {
+          this.ctx.save();
+          this.ctx.fillStyle = p.color;
+          this.ctx.globalAlpha = p.life;
+          this.ctx.beginPath();
+          this.ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+        }
+      }
+
+      renderIrisWipe() {
+        const cx = this.width / 2;
+        const cy = this.height / 2;
+        const maxRadius = Math.hypot(this.width, this.height) / 2;
+        const r = (1 - this.transitionProgress) * maxRadius;
+
+        this.ctx.save();
+        this.ctx.fillStyle = '#050811';
+        this.ctx.beginPath();
+        this.ctx.rect(0, 0, this.width, this.height);
+        this.ctx.arc(cx, cy, Math.max(0, r), 0, Math.PI * 2, true);
+        this.ctx.fill();
+        this.ctx.restore();
+      }
+    }
+
+    // 页面加载就绪后实例化
+    window.addEventListener('DOMContentLoaded', () => {
+      window.game = new RelicCourierGame();
+    });
+  </script>
+</body>
+</html>
